@@ -81,6 +81,7 @@ class SongsProvider extends ChangeNotifier {
         _filteredSongs = _allSongs;
         _currentPage++;
         _hasMore = nextPage.length >= _pageSize;
+        await _cacheService.cacheSongs(_allSongs);
       }
     } catch (e) {
       _errorMessage = e.toString();
@@ -91,11 +92,17 @@ class SongsProvider extends ChangeNotifier {
   }
 
   Future<List<Song>> searchSongsRemote(String query) async {
-    try {
-      return await _songsService.searchSongs(query);
-    } catch (e) {
-      return [];
-    }
+    return await _songsService.searchSongs(query);
+  }
+
+  List<Song> searchSongsLocal(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+    return _allSongs.where((s) {
+      final title = s.title.toLowerCase();
+      final singer = (s.singerName ?? '').toLowerCase();
+      return title.contains(q) || singer.contains(q);
+    }).toList();
   }
 
   Future<List<Song>> fetchSongsBySinger(
@@ -112,6 +119,8 @@ class SongsProvider extends ChangeNotifier {
     } catch (e) {
       final cached = _songsBySingerCache[singerId];
       if (cached != null) return cached;
+      final local = _allSongs.where((s) => s.singerId == singerId).toList();
+      if (local.isNotEmpty) return local;
       rethrow;
     }
   }
@@ -121,4 +130,3 @@ class SongsProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
-
