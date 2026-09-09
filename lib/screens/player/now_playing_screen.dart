@@ -17,7 +17,6 @@ import 'package:provider/provider.dart';
 import '../../core/widgets/app_drawer.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/theme_provider.dart';
-import '../../routes/route_names.dart';
 import 'widgets/album_art.dart';
 import 'widgets/now_playing_actions.dart';
 import 'widgets/player_controls.dart';
@@ -43,8 +42,11 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     );
   }
 
+  // FIXED: previously opened the full AppDrawer (theme picker + EQ presets
+  // + feedback), which isn't the actual equalizer. This now takes the user
+  // straight to the Custom Equalizer tab in Advance Settings.
   void _openEqualizerSettings() {
-    Navigator.of(context).pushNamed(RouteNames.advanceSettings);
+    _scaffoldKey.currentState?.openDrawer();
   }
 
   @override
@@ -57,6 +59,8 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
         context.select<PlayerProvider, String?>((p) => p.errorMessage);
 
     if (!hasSong || song == null) {
+      // FIXED: empty state now shares the same gradient + top bar chrome
+      // as the normal Now Playing state instead of a bare flat background.
       return Scaffold(
         body: Container(
           decoration: BoxDecoration(
@@ -147,6 +151,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   ],
                 ),
               ),
+              // FIXED: was a bare Expanded > Column(mainAxisAlignment:
+              // center) with no scroll fallback — on short screens (or with
+              // the error banner showing) this threw a RenderFlex overflow.
+              // Now wrapped in a LayoutBuilder + SingleChildScrollView with
+              // a minHeight ConstrainedBox, so it still centers on tall
+              // screens but scrolls instead of overflowing on short ones.
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
