@@ -1,5 +1,3 @@
-// File: lib/providers/singers_provider.dart
-
 import 'package:flutter/foundation.dart';
 import '../models/singer.dart';
 import '../services/singers_service.dart';
@@ -47,8 +45,6 @@ class SingersProvider extends ChangeNotifier {
       _currentPage = 0;
       _hasMore = firstPage.length >= _pageSize;
 
-      // Cache only here, on the first successful load — see File 47's
-      // matching fix in songs_provider.dart for the same reasoning.
       await _cacheService.cacheSingers(_allSingers);
     } catch (e) {
       final cached = await _cacheService.getCachedSingers();
@@ -92,9 +88,6 @@ class SingersProvider extends ChangeNotifier {
         }
         _currentPage++;
         _hasMore = nextPage.length >= _pageSize;
-
-        // Fixed (P5-6): no longer re-caches the entire accumulated list on
-        // every "load more" page.
       }
     } catch (e) {
       _errorMessage = e.toString();
@@ -120,11 +113,23 @@ class SingersProvider extends ChangeNotifier {
       final results = await _singersService.searchSingers(query);
       _filteredSingers = results;
     } catch (e) {
-      _filteredSingers = [];
-      _errorMessage = e.toString();
+      _filteredSingers = searchSingersLocal(query);
+      if (_filteredSingers.isEmpty) {
+        _errorMessage = e.toString();
+      }
     } finally {
       notifyListeners();
     }
+  }
+
+  Future<List<Singer>> searchSingersRemote(String query) async {
+    return await _singersService.searchSingers(query);
+  }
+
+  List<Singer> searchSingersLocal(String query) {
+    final q = query.trim().toLowerCase();
+    if (q.isEmpty) return const [];
+    return _allSingers.where((s) => s.name.toLowerCase().contains(q)).toList();
   }
 
   void clearSearch() {
@@ -139,4 +144,3 @@ class SingersProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
-
