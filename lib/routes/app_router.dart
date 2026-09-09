@@ -7,6 +7,7 @@ import '../screens/singers/singer_profile_screen.dart';
 import '../screens/player/now_playing_screen.dart';
 import '../screens/feedback/feedback_screen.dart';
 import '../screens/settings/advance_settings_screen.dart';
+import '../screens/settings/sound_settings_screen.dart';
 import '../screens/drive_mode/drive_mode_screen.dart';
 import '../screens/search/search_screen.dart';
 import 'route_names.dart';
@@ -58,6 +59,11 @@ class AppRouter {
         final tab = args is int ? args : AdvanceSettingsScreen.equalizerTab;
         return MaterialPageRoute(
           builder: (_) => AdvanceSettingsScreen(initialTabIndex: tab),
+          settings: settings,
+        );
+      case RouteNames.soundSettings:
+        return MaterialPageRoute(
+          builder: (_) => const SoundSettingsScreen(),
           settings: settings,
         );
       case RouteNames.driveMode:
