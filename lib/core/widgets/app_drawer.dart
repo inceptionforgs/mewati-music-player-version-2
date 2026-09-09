@@ -8,8 +8,6 @@ import '../../providers/auth_provider.dart';
 import '../../routes/app_router.dart';
 import '../../routes/route_names.dart';
 import '../../screens/player/widgets/sleep_timer_sheet.dart';
-import '../../services/equalizer_service.dart';
-import '../../services/eq_presets.dart';
 
 class AppDrawer extends StatefulWidget {
   const AppDrawer({Key? key}) : super(key: key);
@@ -31,16 +29,13 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> {
   bool _musicOpen = false;
-  bool _eqOpen = false;
   bool _featOpen = false;
 
   void _openTree(String id) {
     setState(() {
       final already = id == 'music' && _musicOpen ||
-          id == 'eq' && _eqOpen ||
           id == 'feat' && _featOpen;
       _musicOpen = !already && id == 'music';
-      _eqOpen = !already && id == 'eq';
       _featOpen = !already && id == 'feat';
     });
   }
@@ -59,7 +54,6 @@ class _AppDrawerState extends State<AppDrawer> {
     final String avatarLetter = displayName[0].toUpperCase();
 
     final bool isPremium = profile?.isPremium ?? false;
-    final bool isCustomEq = themeProvider.eqPreset == 'custom';
 
     return Drawer(
       width: 280,
@@ -194,43 +188,16 @@ class _AppDrawerState extends State<AppDrawer> {
             ),
 
             const SizedBox(height: 18),
-            _DrawerTree(
-              label: 'EQUALIZER',
-              color: t.textSecondary,
-              accent: t.accent,
-              text: t.textPrimary,
+            _DrawerActionRow(
+              icon: Icons.graphic_eq,
+              label: 'Sound Setting',
+              t: t,
               radius: radius,
-              surface: t.surface,
-              collapsed: true,
-              expanded: _eqOpen,
-              onToggle: () => _openTree('eq'),
-              children: [
-            ...EqPresets.drawerList.map((preset) {
-              final isActive = !isCustomEq && themeProvider.eqPreset == preset.id;
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: _DrawerPillRow(
-                  radius: radius,
-                  isActive: isActive,
-                  t: t,
-                  onTap: () {
-                    themeProvider.setEqPreset(preset.id);
-                    if (EqualizerService().shouldHintHeadphones(preset.id)) {
-                      final messenger = ScaffoldMessenger.of(context);
-                      messenger.clearSnackBars();
-                      messenger.showSnackBar(
-                        const SnackBar(
-                          content: Text(EqPresets.headphoneHint),
-                          duration: Duration(seconds: 4),
-                        ),
-                      );
-                    }
-                  },
-                  label: preset.label,
-                ),
-              );
-            }).toList(),
-              ],
+              onTap: () {
+                final navigator = Navigator.of(context);
+                navigator.pop();
+                navigator.pushNamed(RouteNames.soundSettings);
+              },
             ),
 
             const SizedBox(height: 18),
