@@ -22,27 +22,24 @@ dependencies:
   path_provider: ^2.1.2
   shared_preferences: ^2.2.2
   cached_network_image: ^3.3.1
-  flutter_cache_manager: ^3.3.1   # <-- added for image cache limit
+  flutter_cache_manager: ^3.3.1
   intl: ^0.19.0
   http: ^1.2.0
 
   sentry_flutter: ^9.27.0
   connectivity_plus: ^5.0.2
   permission_handler: ^11.3.1
-  wakelock_plus: ^1.2.8   # <-- added for Drive Mode (File 32): keep screen awake
+  speech_to_text: ^7.0.0
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.1
   fake_async: ^1.3.1
-  # Added (Serial 17): lets test/services/downloads_service_test.dart fake
-  # the platform directory lookup instead of hitting a real device path.
   path_provider_platform_interface: ^2.1.0
 
 dependency_overrides:
-  # just_audio 0.9.46 has NO just_audio_android package (that split is 0.10+).
-  # Android ExoPlayer lives inside this fork. EQ PCM hook is in AudioPlayer.java.
   just_audio:
     path: packages/just_audio
 
