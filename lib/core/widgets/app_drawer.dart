@@ -29,15 +29,9 @@ class AppDrawer extends StatefulWidget {
 
 class _AppDrawerState extends State<AppDrawer> {
   bool _musicOpen = false;
-  bool _featOpen = false;
 
-  void _openTree(String id) {
-    setState(() {
-      final already = id == 'music' && _musicOpen ||
-          id == 'feat' && _featOpen;
-      _musicOpen = !already && id == 'music';
-      _featOpen = !already && id == 'feat';
-    });
+  void _toggleMusic() {
+    setState(() => _musicOpen = !_musicOpen);
   }
 
   @override
@@ -128,7 +122,7 @@ class _AppDrawerState extends State<AppDrawer> {
               surface: t.surface,
               collapsed: true,
               expanded: _musicOpen,
-              onToggle: () => _openTree('music'),
+              onToggle: _toggleMusic,
               children: [
             _DrawerActionRow(
               icon: Icons.music_note,
@@ -199,19 +193,7 @@ class _AppDrawerState extends State<AppDrawer> {
                 navigator.pushNamed(RouteNames.soundSettings);
               },
             ),
-
-            const SizedBox(height: 18),
-            _DrawerTree(
-              label: 'ADDITIONAL FEATURES',
-              color: t.textSecondary,
-              accent: t.accent,
-              text: t.textPrimary,
-              radius: radius,
-              surface: t.surface,
-              collapsed: true,
-              expanded: _featOpen,
-              onToggle: () => _openTree('feat'),
-              children: [
+            const SizedBox(height: 8),
             _DrawerActionRow(
               icon: Icons.timer_outlined,
               label: AppStrings.sleepTimer,
@@ -253,8 +235,6 @@ class _AppDrawerState extends State<AppDrawer> {
                 navigator.pop();
                 navigator.pushNamed(RouteNames.feedback);
               },
-            ),
-              ],
             ),
 
             const SizedBox(height: 18),
@@ -412,77 +392,6 @@ class _SectionTitle extends StatelessWidget {
         fontSize: 11,
         fontWeight: FontWeight.w800,
         letterSpacing: 1,
-      ),
-    );
-  }
-}
-
-class _DrawerPillRow extends StatelessWidget {
-  final double radius;
-  final bool isActive;
-  final dynamic t;
-  final VoidCallback onTap;
-  final String label;
-  final Widget? leading;
-
-  const _DrawerPillRow({
-    required this.radius,
-    required this.isActive,
-    required this.t,
-    required this.onTap,
-    required this.label,
-    this.leading,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(radius),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive ? Colors.white.withOpacity(0.08) : t.surface,
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(
-            color: isActive ? t.accent : t.textPrimary.withOpacity(0.18),
-          ),
-        ),
-        child: Row(
-          children: [
-            if (leading != null) ...[
-              leading!,
-              const SizedBox(width: 8),
-            ],
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: isActive ? t.accent : t.textPrimary.withOpacity(0.7),
-                  fontWeight: FontWeight.w700,
-                  fontSize: 12,
-                ),
-              ),
-            ),
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isActive ? t.accent : Colors.white.withOpacity(0.5),
-                boxShadow: isActive
-                    ? [
-                        BoxShadow(
-                          color: t.accent.withOpacity(0.7),
-                          blurRadius: 6,
-                        ),
-                      ]
-                    : null,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
