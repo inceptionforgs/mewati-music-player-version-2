@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -6,9 +8,14 @@ import '../../providers/theme_provider.dart';
 import '../../services/equalizer_service.dart';
 import '../../services/eq_presets.dart';
 
-class SoundSettingsScreen extends StatelessWidget {
+class SoundSettingsScreen extends StatefulWidget {
   const SoundSettingsScreen({super.key});
 
+  @override
+  State<SoundSettingsScreen> createState() => _SoundSettingsScreenState();
+}
+
+class _SoundSettingsScreenState extends State<SoundSettingsScreen> {
   static const _panelTop = Color(0xFFE67A2E);
   static const _panelBottom = Color(0xFFC45A16);
   static const _barFill = Color(0xFFF3D59A);
@@ -20,6 +27,9 @@ class SoundSettingsScreen extends StatelessWidget {
     '3kHz',
     '10kHz',
   ];
+
+  String? _editId;
+  List<double>? _editGains;
 
   static List<double> visualGains(EqPreset p) {
     if (!p.advanced) {
@@ -52,6 +62,34 @@ class SoundSettingsScreen extends StatelessWidget {
     return (((db + 15) / 30) * 18 + 2).round().clamp(2, 20);
   }
 
+  List<double> _gainsFor(EqPreset p) {
+    if (p.id == 'mewati-bass') return visualGains(p);
+    if (_editId == p.id && _editGains != null) return _editGains!;
+    return visualGains(p);
+  }
+
+  void _setBand(EqPreset preset, int index, double db) {
+    if (preset.id == 'mewati-bass') return;
+    final next = List<double>.from(_gainsFor(preset));
+    next[index] = db.clamp(EqPresets.minDb, EqPresets.maxDb);
+    setState(() {
+      _editId = preset.id;
+      _editGains = next;
+    });
+    EqualizerService().applyCustomSnapshot(
+      bandGains: next,
+      bassBoostDb: 0,
+    );
+  }
+
+  Future<void> _selectPreset(String id) async {
+    setState(() {
+      _editId = null;
+      _editGains = null;
+    });
+    await context.read<ThemeProvider>().setEqPreset(id);
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
@@ -61,7 +99,8 @@ class SoundSettingsScreen extends StatelessWidget {
     final selected = EqPresets.byId(
       EqPresets.drawerIds.contains(selectedId) ? selectedId : 'normal',
     );
-    final gains = visualGains(selected);
+    final locked = selected.id == 'mewati-bass';
+    final gains = _gainsFor(selected);
 
     return Scaffold(
       backgroundColor: t.background,
@@ -125,37 +164,42 @@ class SoundSettingsScreen extends StatelessWidget {
                         const SizedBox(height: 14),
                         SizedBox(
                           height: 168,
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: List.generate(5, (i) {
-                              return Expanded(
-                                child: _WalkmanBand(
-                                  filled: barsFor(gains[i]),
-                                  fill: _barFill,
-                                  edge: _barEdge,
+                          child: locked
+                              ? const _MewatiBassLock()
+                              : Row(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: List.generate(5, (i) {
+                                    return Expanded(
+                                      child: _WalkmanBand(
+                                        filled: barsFor(gains[i]),
+                                        fill: _barFill,
+                                        edge: _barEdge,
+                                        onChangeDb: (db) =>
+                                            _setBand(selected, i, db),
+                                      ),
+                                    );
+                                  }),
                                 ),
-                              );
-                            }),
-                          ),
                         ),
                         const SizedBox(height: 10),
-                        Row(
-                          children: _labels
-                              .map(
-                                (l) => Expanded(
-                                  child: Text(
-                                    l,
-                                    textAlign: TextAlign.center,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w800,
+                        if (!locked)
+                          Row(
+                            children: _labels
+                                .map(
+                                  (l) => Expanded(
+                                    child: Text(
+                                      l,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              )
-                              .toList(),
-                        ),
+                                )
+                                .toList(),
+                          ),
                       ],
                     ),
                   ),
@@ -176,8 +220,9 @@ class SoundSettingsScreen extends StatelessWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: InkWell(
                         onTap: () {
-                          themeProvider.setEqPreset(preset.id);
-                          if (EqualizerService().shouldHintHeadphones(preset.id)) {
+                          _selectPreset(preset.id);
+                          if (EqualizerService()
+                              .shouldHintHeadphones(preset.id)) {
                             final messenger = ScaffoldMessenger.of(context);
                             messenger.clearSnackBars();
                             messenger.showSnackBar(
@@ -201,7 +246,9 @@ class SoundSettingsScreen extends StatelessWidget {
                                 : t.surface,
                             borderRadius: BorderRadius.circular(radius),
                             border: Border.all(
-                              color: active ? t.accent : t.textPrimary.withOpacity(0.16),
+                              color: active
+                                  ? t.accent
+                                  : t.textPrimary.withOpacity(0.16),
                               width: active ? 1.6 : 1,
                             ),
                           ),
@@ -255,31 +302,161 @@ class _WalkmanBand extends StatelessWidget {
   final int filled;
   final Color fill;
   final Color edge;
+  final ValueChanged<double> onChangeDb;
 
   const _WalkmanBand({
     required this.filled,
     required this.fill,
     required this.edge,
+    required this.onChangeDb,
   });
+
+  double _dbFromLocalY(double localY, double height) {
+    final t = (1.0 - (localY / height)).clamp(0.0, 1.0);
+    return EqPresets.minDb + t * (EqPresets.maxDb - EqPresets.minDb);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 6),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: List.generate(filled, (i) {
-          return Container(
-            margin: const EdgeInsets.only(bottom: 2.2),
-            height: 5.6,
-            decoration: BoxDecoration(
-              color: fill,
-              borderRadius: BorderRadius.circular(1.5),
-              border: Border.all(color: edge.withOpacity(0.7), width: 0.4),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          return GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (d) =>
+                onChangeDb(_dbFromLocalY(d.localPosition.dy, box.maxHeight)),
+            onVerticalDragUpdate: (d) =>
+                onChangeDb(_dbFromLocalY(d.localPosition.dy, box.maxHeight)),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: List.generate(filled, (i) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 2.2),
+                  height: 5.6,
+                  decoration: BoxDecoration(
+                    color: fill,
+                    borderRadius: BorderRadius.circular(1.5),
+                    border: Border.all(color: edge.withOpacity(0.7), width: 0.4),
+                  ),
+                );
+              }),
             ),
           );
-        }),
+        },
       ),
     );
   }
+}
+
+class _MewatiBassLock extends StatefulWidget {
+  const _MewatiBassLock();
+
+  @override
+  State<_MewatiBassLock> createState() => _MewatiBassLockState();
+}
+
+class _MewatiBassLockState extends State<_MewatiBassLock>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, _) {
+        return CustomPaint(
+          painter: _BassWavePainter(t: _pulse.value),
+          child: const Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'MEWATI',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2.4,
+                    height: 1.1,
+                  ),
+                ),
+                Text(
+                  'BASS',
+                  style: TextStyle(
+                    color: Color(0xFFF3D59A),
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 3.2,
+                    height: 1.1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BassWavePainter extends CustomPainter {
+  final double t;
+
+  _BassWavePainter({required this.t});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, size.height / 2);
+    final radius = math.min(size.width, size.height) / 2 - 6;
+    final pulse = 0.55 + 0.45 * math.sin(t * math.pi * 2);
+
+    final ring = Paint()
+      ..color = const Color(0xFFF3D59A).withOpacity(0.35 + 0.25 * pulse)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    canvas.drawCircle(c, radius * 0.72, ring);
+    canvas.drawCircle(c, radius * (0.86 + 0.04 * pulse), ring);
+
+    final bar = Paint()
+      ..color = const Color(0xFFF3D59A)
+      ..strokeWidth = 2.4
+      ..strokeCap = StrokeCap.round;
+
+    const ticks = 42;
+    for (var i = 0; i < ticks; i++) {
+      final a = (i / ticks) * math.pi * 2;
+      final wave = (math.sin(a * 3 + t * math.pi * 2) + 1) / 2;
+      final len = 6.0 + 16.0 * wave * pulse;
+      final inner = radius * 0.90;
+      final p1 = Offset(
+        c.dx + math.cos(a) * inner,
+        c.dy + math.sin(a) * inner,
+      );
+      final p2 = Offset(
+        c.dx + math.cos(a) * (inner + len),
+        c.dy + math.sin(a) * (inner + len),
+      );
+      canvas.drawLine(p1, p2, bar);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _BassWavePainter oldDelegate) =>
+      oldDelegate.t != t;
 }
