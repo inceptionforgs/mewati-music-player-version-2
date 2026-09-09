@@ -4,12 +4,10 @@ import 'package:mewati_tune_player/core/constants/themes/app_theme_id.dart';
 import 'package:mewati_tune_player/core/widgets/song_row.dart';
 import 'package:mewati_tune_player/models/song.dart';
 
-/// Minimal stand-in for AppThemeData — SongRow only reads a handful of
-/// color fields (plus `id`, used to pick the per-theme corner radius)
-/// off `t` (typed `dynamic` in the widget).
 class _FakeTheme {
   final Color surface = Colors.grey;
   final Color textPrimary = Colors.white;
+  final Color textSecondary = Colors.white70;
   final Color accent = Colors.deepOrange;
   final Color background = Colors.black;
   final AppThemeId id = AppThemeId.walkmanOrange;
@@ -22,11 +20,9 @@ void main() {
     id: 's1',
     title: 'Test Song',
     audioUrl: 'https://example.com/a.mp3',
-    // coverImageUrl intentionally left null so the widget renders a plain
-    // Icon instead of attempting a real network image fetch in tests.
   );
 
-  testWidgets('shows the action icons alongside the NOW badge when isNow is true', (tester) async {
+  testWidgets('shows title and keeps action icons off the row', (tester) async {
     await tester.pumpWidget(_wrap(SongRow(
       t: _FakeTheme(),
       data: SongRowData(
@@ -50,15 +46,15 @@ void main() {
       ),
     )));
 
-    // NOW badge is present...
-    expect(find.text('Ⅱ NOW'), findsOneWidget);
-    // ...alongside the action icons, not instead of them.
-    expect(find.byIcon(Icons.thumb_up_outlined), findsOneWidget);
-    expect(find.byIcon(Icons.favorite_border), findsOneWidget);
-    expect(find.byIcon(Icons.download_outlined), findsOneWidget);
+    expect(find.text('Test Song'), findsOneWidget);
+    expect(find.text('Ⅱ NOW'), findsNothing);
+    expect(find.byIcon(Icons.thumb_up_outlined), findsNothing);
+    expect(find.byIcon(Icons.favorite_border), findsNothing);
+    expect(find.byIcon(Icons.download_outlined), findsNothing);
   });
 
-  testWidgets('reflects liked/favorited/downloaded state via icon and color choice', (tester) async {
+  testWidgets('liked and favorited state does not put icons on the row',
+      (tester) async {
     await tester.pumpWidget(_wrap(SongRow(
       t: _FakeTheme(),
       data: SongRowData(
@@ -82,14 +78,14 @@ void main() {
       ),
     )));
 
-    expect(find.text('Ⅱ NOW'), findsNothing);
-    expect(find.byIcon(Icons.thumb_up), findsOneWidget); // liked (filled)
-    expect(find.byIcon(Icons.favorite), findsOneWidget); // favorited (filled)
-    expect(find.byIcon(Icons.check_circle), findsOneWidget); // downloaded
+    expect(find.text('Test Song'), findsOneWidget);
+    expect(find.byIcon(Icons.thumb_up), findsNothing);
+    expect(find.byIcon(Icons.favorite), findsNothing);
+    expect(find.byIcon(Icons.check_circle), findsNothing);
   });
 
-  testWidgets('tapping the like button invokes onToggleLike', (tester) async {
-    var toggled = false;
+  testWidgets('tapping the row invokes onTap', (tester) async {
+    var tapped = false;
     await tester.pumpWidget(_wrap(SongRow(
       t: _FakeTheme(),
       data: SongRowData(
@@ -104,17 +100,16 @@ void main() {
         likeCount: 0,
       ),
       actions: SongRowActions(
-        onTap: () {},
+        onTap: () => tapped = true,
         onToggleFavorite: () {},
         onDownload: () {},
         onCancelDownload: () {},
         onRemoveDownload: () {},
-        onToggleLike: () => toggled = true,
+        onToggleLike: () {},
       ),
     )));
 
-    await tester.tap(find.byIcon(Icons.thumb_up_outlined));
-    expect(toggled, isTrue);
+    await tester.tap(find.text('Test Song'));
+    expect(tapped, isTrue);
   });
 }
-
