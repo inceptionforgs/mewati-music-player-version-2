@@ -97,7 +97,7 @@ class _SongsScreenState extends State<SongsScreen> {
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
-      final target = (index * 78.0).clamp(
+      final target = (index * SongRow.tileHeight).clamp(
         0.0,
         _scrollController.position.maxScrollExtent,
       );
@@ -239,9 +239,8 @@ class _SongsScreenState extends State<SongsScreen> {
       (p) => p.isPlaying,
     );
 
-    final favoritesProvider = context.watch<FavoritesProvider>();
-    final downloadsProvider = context.watch<DownloadsProvider>();
-    final likesProvider = context.watch<LikesProvider>();
+    final downloadsProvider =
+        Provider.of<DownloadsProvider>(context, listen: false);
 
     if (songsProvider.isLoading && songsProvider.allSongs.isEmpty) {
       return const LoadingWidget(message: AppStrings.loading);
@@ -300,12 +299,20 @@ class _SongsScreenState extends State<SongsScreen> {
 
         final song = songs[index];
         final isNow = currentSongId == song.id;
-        final isFav = favoritesProvider.isFavoriteSync(song.id);
-        final isDownloaded = downloadsProvider.isDownloaded(song.id);
-        final isLiked = likesProvider.isLikedSync(song.id);
-        final likeCount = likesProvider.likeCounts.containsKey(song.id)
-            ? likesProvider.getLikeCountSync(song.id)
-            : song.likeCount;
+        final isFav = context.select<FavoritesProvider, bool>(
+          (p) => p.isFavoriteSync(song.id),
+        );
+        final isDownloaded = context.select<DownloadsProvider, bool>(
+          (p) => p.isDownloaded(song.id),
+        );
+        final isLiked = context.select<LikesProvider, bool>(
+          (p) => p.isLikedSync(song.id),
+        );
+        final likeCount = context.select<LikesProvider, int>(
+          (p) => p.likeCounts.containsKey(song.id)
+              ? p.getLikeCountSync(song.id)
+              : song.likeCount,
+        );
 
         return ValueListenableBuilder<Map<String, double>>(
           valueListenable: downloadsProvider.progressNotifier,
@@ -343,4 +350,3 @@ class _SongsScreenState extends State<SongsScreen> {
     );
   }
 }
-
