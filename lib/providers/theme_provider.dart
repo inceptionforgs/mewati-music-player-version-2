@@ -44,28 +44,14 @@ class ThemeProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      final themeIdStr = prefs.getString(_themeIdKey);
-      if (themeIdStr != null) {
-        final id = AppThemeId.values.firstWhere(
-          (e) => e.toString() == themeIdStr,
-          orElse: () => AppThemes.defaultThemeId,
-        );
-        _themeId = id;
-      }
-
-      final customColorValue = prefs.getInt(_customColorKey);
-      if (customColorValue != null) {
-        _customColor = Color(customColorValue);
-      }
-      final customShadeValue = prefs.getDouble(_customShadeKey);
-      if (customShadeValue != null) {
-        _customShade = customShadeValue;
-      }
+      _themeId = AppThemes.defaultThemeId;
+      await prefs.setString(_themeIdKey, _themeId.toString());
 
       final eq = prefs.getString(EqualizerService.presetPrefsKey) ??
           prefs.getString('eq_preset');
       if (eq != null) {
-        _eqPreset = eq;
+        const hidden = {'beats', 'wow', 'custom'};
+        _eqPreset = hidden.contains(eq) ? 'mewati-bass' : eq;
       }
 
       notifyListeners();
