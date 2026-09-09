@@ -24,6 +24,7 @@ import 'routes/route_names.dart';
 
 class _MiniPlayerRouteObserver extends NavigatorObserver {
   _MiniPlayerRouteObserver(this.onRouteChanged);
+
   final ValueChanged<String?> onRouteChanged;
 
   @override
@@ -84,6 +85,7 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
     with WidgetsBindingObserver {
   final ValueNotifier<String?> _currentRouteName = ValueNotifier<String?>(null);
   late final _MiniPlayerRouteObserver _routeObserver;
+
   late final AuthProvider _authProvider;
   late final FavoritesProvider _favoritesProvider;
   late final LikesProvider _likesProvider;
@@ -92,14 +94,18 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
   @override
   void initState() {
     super.initState();
-    _routeObserver = _MiniPlayerRouteObserver((name) {
-      _currentRouteName.value = name;
-    });
+    _routeObserver = _MiniPlayerRouteObserver(
+      (name) {
+        _currentRouteName.value = name;
+      },
+    );
     WidgetsBinding.instance.addObserver(this);
+
     _authProvider = widget.authProvider ?? AuthProvider();
     _favoritesProvider = FavoritesProvider();
     _likesProvider = LikesProvider();
     _downloadsProvider = widget.downloadsProvider ?? DownloadsProvider();
+
     _authProvider.onSessionReady = () {
       _favoritesProvider.loadFavorites();
       _likesProvider.clear();
@@ -126,11 +132,15 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<AuthProvider>.value(value: _authProvider),
-        ChangeNotifierProvider<DownloadsProvider>.value(value: _downloadsProvider),
+        ChangeNotifierProvider<DownloadsProvider>.value(
+          value: _downloadsProvider,
+        ),
         ChangeNotifierProvider(create: (_) => PlayerProvider()),
         ChangeNotifierProvider(create: (_) => SongsProvider()),
         ChangeNotifierProvider(create: (_) => SingersProvider()),
-        ChangeNotifierProvider<FavoritesProvider>.value(value: _favoritesProvider),
+        ChangeNotifierProvider<FavoritesProvider>.value(
+          value: _favoritesProvider,
+        ),
         ChangeNotifierProvider<LikesProvider>.value(value: _likesProvider),
         ChangeNotifierProvider(create: (_) => SleepTimerProvider()),
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
@@ -149,12 +159,17 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
               return ValueListenableBuilder<String?>(
                 valueListenable: _currentRouteName,
                 builder: (context, routeName, _) {
-                  final hasSong = context.select<PlayerProvider, bool>((p) => p.hasSong);
+                  final hasSong = context.select<PlayerProvider, bool>(
+                    (p) => p.hasSong,
+                  );
                   final isNowPlaying = routeName == RouteNames.nowPlaying;
                   final isSplash = routeName == RouteNames.splash;
                   final isDriveMode = routeName == RouteNames.driveMode;
                   final isSearch = routeName == RouteNames.search;
-                  final isAdvanceSettings = routeName == RouteNames.advanceSettings;
+                  final isAdvanceSettings =
+                      routeName == RouteNames.advanceSettings;
+                  final isSoundSettings =
+                      routeName == RouteNames.soundSettings;
                   final isFeedback = routeName == RouteNames.feedback;
                   final showMiniPlayer = hasSong &&
                       !isNowPlaying &&
@@ -162,10 +177,15 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
                       !isDriveMode &&
                       !isSearch &&
                       !isAdvanceSettings &&
+                      !isSoundSettings &&
                       !isFeedback;
 
-                  final miniPlayerHeight = _miniPlayerHeightFor(themeProvider.theme.id);
-                  final tabLift = _miniBottomOffset(themeProvider.theme.id, routeName);
+                  final miniPlayerHeight =
+                      _miniPlayerHeightFor(themeProvider.theme.id);
+                  final tabLift = _miniBottomOffset(
+                    themeProvider.theme.id,
+                    routeName,
+                  );
                   final applePad = themeProvider.theme.id == AppThemeId.silverChrome
                       ? MediaQuery.paddingOf(context).bottom
                       : 0.0;
