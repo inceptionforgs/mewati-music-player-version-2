@@ -41,12 +41,13 @@ class EqPresets {
   static const minDb = -15.0;
   static const maxDb = 15.0;
   static const maxBassBoostDb = 6.0;
-  static const headphoneHintIds = {'mewati-bass', 'beats', 'wow'};
+  static const headphoneHintIds = {'mewati-bass'};
   static const headphoneHint =
       'Please use your headphones for premium sound quality';
 
   static const list = <EqPreset>[
     EqPreset(id: 'normal', label: 'Normal', gains: [0, 0, 0, 0, 0], bass: 0),
+    EqPreset(id: 'bass', label: 'Bass', gains: [6, 4, 0, 0, 0], bass: 0),
     EqPreset(
       id: 'mewati-bass',
       label: 'Mewati Bass™',
@@ -58,6 +59,8 @@ class EqPresets {
       truTreble: 0,
       advanced: true,
     ),
+    EqPreset(id: 'vocal', label: 'Voice', gains: [-2, -1, 5.5, 5, 0.5], bass: 0),
+    EqPreset(id: 'treble', label: 'Treble', gains: [0, 0, 0, 2.5, 6], bass: 0),
     EqPreset(
       id: 'beats',
       label: 'Mewati Beats™',
@@ -80,9 +83,12 @@ class EqPresets {
       truTreble: 0.28,
       advanced: true,
     ),
-    EqPreset(id: 'vocal', label: 'Vocal ++', gains: [-2, -1, 5.5, 5, 0.5], bass: 0),
-    EqPreset(id: 'treble', label: 'Treble Boost', gains: [0, 0, 0, 2.5, 6], bass: 0),
   ];
+
+  static const drawerIds = {'normal', 'bass', 'mewati-bass', 'vocal', 'treble'};
+
+  static List<EqPreset> get drawerList =>
+      list.where((p) => drawerIds.contains(p.id)).toList();
 
   static EqPreset byId(String id) {
     for (final p in list) {
