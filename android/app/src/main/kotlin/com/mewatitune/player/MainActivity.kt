@@ -49,6 +49,11 @@ class MainActivity : AudioServiceActivity() {
                     if (receiver == null) {
                         receiver = object : BroadcastReceiver() {
                             override fun onReceive(context: Context?, intent: Intent?) {
+                                val type = intent?.getIntExtra(
+                                    "android.media.EXTRA_VOLUME_STREAM_TYPE",
+                                    -1,
+                                ) ?: -1
+                                if (type != -1 && type != AudioManager.STREAM_MUSIC) return
                                 volumeEvents?.success(systemVolume(am))
                             }
                         }
