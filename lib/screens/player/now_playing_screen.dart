@@ -43,9 +43,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     );
   }
 
-  // FIXED: previously opened the full AppDrawer (theme picker + EQ presets
-  // + feedback), which isn't the actual equalizer. This now takes the user
-  // straight to the Custom Equalizer tab in Advance Settings.
   void _openEqualizerSettings() {
     Navigator.of(context).pushNamed(RouteNames.soundSettings);
   }
@@ -60,8 +57,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
         context.select<PlayerProvider, String?>((p) => p.errorMessage);
 
     if (!hasSong || song == null) {
-      // FIXED: empty state now shares the same gradient + top bar chrome
-      // as the normal Now Playing state instead of a bare flat background.
       return Scaffold(
         body: Container(
           decoration: BoxDecoration(
@@ -152,12 +147,6 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   ],
                 ),
               ),
-              // FIXED: was a bare Expanded > Column(mainAxisAlignment:
-              // center) with no scroll fallback — on short screens (or with
-              // the error banner showing) this threw a RenderFlex overflow.
-              // Now wrapped in a LayoutBuilder + SingleChildScrollView with
-              // a minHeight ConstrainedBox, so it still centers on tall
-              // screens but scrolls instead of overflowing on short ones.
               Expanded(
                 child: LayoutBuilder(
                   builder: (context, constraints) {
@@ -225,3 +214,72 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                                           const Icon(Icons.error_outline,
                                               color: Colors.redAccent,
                                               size: 18),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              'Unable to play this song',
+                                              style: TextStyle(
+                                                color: Colors.redAccent,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        errorMessage,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color:
+                                              t.textPrimary.withOpacity(0.75),
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton.icon(
+                                          onPressed: () {
+                                            final playerProvider =
+                                                context.read<PlayerProvider>();
+                                            playerProvider.clearError();
+                                            playerProvider.togglePlayPause();
+                                          },
+                                          icon: const Icon(Icons.refresh,
+                                              size: 16),
+                                          label: const Text('Retry'),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            NowPlayingActions(
+                              song: song,
+                              onTimerTap: _openSleepTimerSheet,
+                              onEqualizerTap: _openEqualizerSettings,
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 26),
+                child: SeekBar(),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 26),
+                child: PlayerControls(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
