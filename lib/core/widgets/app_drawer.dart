@@ -8,7 +8,6 @@ import '../../providers/auth_provider.dart';
 import '../../routes/app_router.dart';
 import '../../routes/route_names.dart';
 import '../../screens/player/widgets/sleep_timer_sheet.dart';
-import '../../screens/settings/advance_settings_screen.dart';
 import '../../services/equalizer_service.dart';
 import '../../services/eq_presets.dart';
 
@@ -26,12 +25,6 @@ class AppDrawer extends StatefulWidget {
     }
   }
 
-  static void _openAdvanceSettings(BuildContext context, {required int tab}) {
-    final navigator = Navigator.of(context);
-    navigator.pop();
-    navigator.pushNamed(RouteNames.advanceSettings, arguments: tab);
-  }
-
   @override
   State<AppDrawer> createState() => _AppDrawerState();
 }
@@ -39,17 +32,14 @@ class AppDrawer extends StatefulWidget {
 class _AppDrawerState extends State<AppDrawer> {
   bool _musicOpen = false;
   bool _eqOpen = false;
-  bool _themeOpen = false;
   bool _featOpen = false;
 
   void _openTree(String id) {
     setState(() {
       final already = id == 'music' && _musicOpen ||
-          id == 'theme' && _themeOpen ||
           id == 'eq' && _eqOpen ||
           id == 'feat' && _featOpen;
       _musicOpen = !already && id == 'music';
-      _themeOpen = !already && id == 'theme';
       _eqOpen = !already && id == 'eq';
       _featOpen = !already && id == 'feat';
     });
@@ -69,7 +59,6 @@ class _AppDrawerState extends State<AppDrawer> {
     final String avatarLetter = displayName[0].toUpperCase();
 
     final bool isPremium = profile?.isPremium ?? false;
-    final bool isCustomTheme = themeProvider.themeId == AppThemeId.custom;
     final bool isCustomEq = themeProvider.eqPreset == 'custom';
 
     return Drawer(
@@ -135,6 +124,7 @@ class _AppDrawerState extends State<AppDrawer> {
               ],
             ),
             Divider(height: 30, color: t.textPrimary.withOpacity(0.15)),
+
             _DrawerTree(
               label: 'MUSIC',
               color: t.textSecondary,
@@ -146,120 +136,63 @@ class _AppDrawerState extends State<AppDrawer> {
               expanded: _musicOpen,
               onToggle: () => _openTree('music'),
               children: [
-                _DrawerActionRow(
-                  icon: Icons.music_note,
-                  label: AppStrings.navSongs,
-                  t: t,
-                  radius: radius,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    HomeNav.goTab(HomeNav.songs);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _DrawerActionRow(
-                  icon: Icons.mic,
-                  label: AppStrings.navSingers,
-                  t: t,
-                  radius: radius,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    HomeNav.goTab(HomeNav.singers);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _DrawerActionRow(
-                  icon: Icons.trending_up,
-                  label: AppStrings.navTrending,
-                  t: t,
-                  radius: radius,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    HomeNav.goTab(HomeNav.trending);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _DrawerActionRow(
-                  icon: Icons.favorite,
-                  label: AppStrings.navFavorites,
-                  t: t,
-                  radius: radius,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    HomeNav.goTab(HomeNav.favorites);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _DrawerActionRow(
-                  icon: Icons.download,
-                  label: 'Downloaded',
-                  t: t,
-                  radius: radius,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    HomeNav.goTab(HomeNav.downloads);
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            _DrawerTree(
-              label: 'THEME SETTINGS',
-              color: t.textSecondary,
-              accent: t.accent,
-              text: t.textPrimary,
+            _DrawerActionRow(
+              icon: Icons.music_note,
+              label: AppStrings.navSongs,
+              t: t,
               radius: radius,
-              surface: t.surface,
-              collapsed: true,
-              expanded: _themeOpen,
-              onToggle: () => _openTree('theme'),
-              children: [
-                ...AppThemes.all.map((themeData) {
-                  final isActive = !isCustomTheme && themeProvider.themeId == themeData.id;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: _DrawerPillRow(
-                      radius: radius,
-                      isActive: isActive,
-                      t: t,
-                      onTap: () => themeProvider.setTheme(themeData.id),
-                      leading: Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: themeData.accent,
-                          border: Border.all(color: t.textPrimary.withOpacity(0.3)),
-                        ),
-                      ),
-                      label: themeData.label,
-                    ),
-                  );
-                }).toList(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: _DrawerPillRow(
-                    radius: radius,
-                    isActive: isCustomTheme,
-                    t: t,
-                    onTap: () => AppDrawer._openAdvanceSettings(
-                      context,
-                      tab: AdvanceSettingsScreen.themeTab,
-                    ),
-                    leading: Container(
-                      width: 14,
-                      height: 14,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: themeProvider.customColor,
-                        border: Border.all(color: t.textPrimary.withOpacity(0.3)),
-                      ),
-                    ),
-                    label: 'Theme Customization',
-                  ),
-                ),
+              onTap: () {
+                Navigator.of(context).pop();
+                HomeNav.goTab(HomeNav.songs);
+              },
+            ),
+            const SizedBox(height: 8),
+            _DrawerActionRow(
+              icon: Icons.mic,
+              label: AppStrings.navSingers,
+              t: t,
+              radius: radius,
+              onTap: () {
+                Navigator.of(context).pop();
+                HomeNav.goTab(HomeNav.singers);
+              },
+            ),
+            const SizedBox(height: 8),
+            _DrawerActionRow(
+              icon: Icons.trending_up,
+              label: AppStrings.navTrending,
+              t: t,
+              radius: radius,
+              onTap: () {
+                Navigator.of(context).pop();
+                HomeNav.goTab(HomeNav.trending);
+              },
+            ),
+            const SizedBox(height: 8),
+            _DrawerActionRow(
+              icon: Icons.favorite,
+              label: AppStrings.navFavorites,
+              t: t,
+              radius: radius,
+              onTap: () {
+                Navigator.of(context).pop();
+                HomeNav.goTab(HomeNav.favorites);
+              },
+            ),
+            const SizedBox(height: 8),
+            _DrawerActionRow(
+              icon: Icons.download,
+              label: 'Downloaded',
+              t: t,
+              radius: radius,
+              onTap: () {
+                Navigator.of(context).pop();
+                HomeNav.goTab(HomeNav.downloads);
+              },
+            ),
               ],
             ),
+
             const SizedBox(height: 18),
             _DrawerTree(
               label: 'EQUALIZER',
@@ -272,49 +205,34 @@ class _AppDrawerState extends State<AppDrawer> {
               expanded: _eqOpen,
               onToggle: () => _openTree('eq'),
               children: [
-                ..._eqPresets.map((preset) {
-                  final isActive = !isCustomEq && themeProvider.eqPreset == preset.id;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 3),
-                    child: _DrawerPillRow(
-                      radius: radius,
-                      isActive: isActive,
-                      t: t,
-                      onTap: () {
-                        themeProvider.setEqPreset(preset.id);
-                        if (EqualizerService().shouldHintHeadphones(preset.id)) {
-                          final messenger = ScaffoldMessenger.of(context);
-                          messenger.clearSnackBars();
-                          messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text(EqPresets.headphoneHint),
-                              duration: Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                      },
-                      label: preset.label,
-                    ),
-                  );
-                }).toList(),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: _DrawerPillRow(
-                    radius: radius,
-                    isActive: isCustomEq,
-                    t: t,
-                    onTap: () {
-                      themeProvider.setEqPreset('custom');
-                      AppDrawer._openAdvanceSettings(
-                        context,
-                        tab: AdvanceSettingsScreen.equalizerTab,
+            ...EqPresets.drawerList.map((preset) {
+              final isActive = !isCustomEq && themeProvider.eqPreset == preset.id;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: _DrawerPillRow(
+                  radius: radius,
+                  isActive: isActive,
+                  t: t,
+                  onTap: () {
+                    themeProvider.setEqPreset(preset.id);
+                    if (EqualizerService().shouldHintHeadphones(preset.id)) {
+                      final messenger = ScaffoldMessenger.of(context);
+                      messenger.clearSnackBars();
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text(EqPresets.headphoneHint),
+                          duration: Duration(seconds: 4),
+                        ),
                       );
-                    },
-                    label: 'Custom Equalizer',
-                  ),
+                    }
+                  },
+                  label: preset.label,
                 ),
+              );
+            }).toList(),
               ],
             ),
+
             const SizedBox(height: 18),
             _DrawerTree(
               label: 'ADDITIONAL FEATURES',
@@ -327,61 +245,51 @@ class _AppDrawerState extends State<AppDrawer> {
               expanded: _featOpen,
               onToggle: () => _openTree('feat'),
               children: [
-                _DrawerActionRow(
-                  icon: Icons.timer_outlined,
-                  label: AppStrings.sleepTimer,
-                  t: t,
-                  radius: radius,
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      final ctx = AppRouter.navigatorKey.currentContext;
-                      if (ctx == null) return;
-                      showModalBottomSheet(
-                        context: ctx,
-                        backgroundColor: Colors.transparent,
-                        builder: (_) => const SleepTimerSheet(),
-                      );
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-                _DrawerActionRow(
-                  icon: Icons.drive_eta,
-                  label: 'Drive Mode',
-                  t: t,
-                  radius: radius,
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.pushNamed(RouteNames.driveMode);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _DrawerActionRow(
-                  icon: Icons.tune,
-                  label: AppStrings.advanceSettingsDrawerLabel,
-                  t: t,
-                  radius: radius,
-                  onTap: () => AppDrawer._openAdvanceSettings(
-                    context,
-                    tab: AdvanceSettingsScreen.equalizerTab,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _DrawerActionRow(
-                  icon: Icons.feedback_outlined,
-                  label: 'Report us',
-                  t: t,
-                  radius: radius,
-                  onTap: () {
-                    final navigator = Navigator.of(context);
-                    navigator.pop();
-                    navigator.pushNamed(RouteNames.feedback);
-                  },
-                ),
+            _DrawerActionRow(
+              icon: Icons.timer_outlined,
+              label: AppStrings.sleepTimer,
+              t: t,
+              radius: radius,
+              onTap: () {
+                Navigator.of(context).pop();
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  final ctx = AppRouter.navigatorKey.currentContext;
+                  if (ctx == null) return;
+                  showModalBottomSheet(
+                    context: ctx,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => const SleepTimerSheet(),
+                  );
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            _DrawerActionRow(
+              icon: Icons.drive_eta,
+              label: 'Drive Mode',
+              t: t,
+              radius: radius,
+              onTap: () {
+                final navigator = Navigator.of(context);
+                navigator.pop();
+                navigator.pushNamed(RouteNames.driveMode);
+              },
+            ),
+            const SizedBox(height: 8),
+            _DrawerActionRow(
+              icon: Icons.feedback_outlined,
+              label: 'Report us',
+              t: t,
+              radius: radius,
+              onTap: () {
+                final navigator = Navigator.of(context);
+                navigator.pop();
+                navigator.pushNamed(RouteNames.feedback);
+              },
+            ),
               ],
             ),
+
             const SizedBox(height: 18),
             _SectionTitle(label: 'ABOUT US', color: t.textSecondary),
             const SizedBox(height: 10),
@@ -431,21 +339,6 @@ class _AppDrawerState extends State<AppDrawer> {
     );
   }
 }
-
-class _EqPresetDef {
-  final String id;
-  final String label;
-  const _EqPresetDef(this.id, this.label);
-}
-
-const List<_EqPresetDef> _eqPresets = [
-  _EqPresetDef('normal', 'Normal'),
-  _EqPresetDef('mewati-bass', 'Mewati Bass™'),
-  _EqPresetDef('beats', 'Mewati Beats™'),
-  _EqPresetDef('wow', 'Mewati Boom™'),
-  _EqPresetDef('vocal', 'Vocal ++'),
-  _EqPresetDef('treble', 'Treble Boost'),
-];
 
 class _DrawerTree extends StatelessWidget {
   final String label;
