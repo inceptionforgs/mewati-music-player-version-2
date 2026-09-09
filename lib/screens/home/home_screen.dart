@@ -10,6 +10,7 @@ import '../trending/trending_screen.dart';
 import '../favorites/favorites_screen.dart';
 import '../downloads/downloads_screen.dart';
 import '../search/search_screen.dart';
+import '../search/voice_search_sheet.dart';
 import 'widgets/brand_row.dart';
 import 'widgets/home_tabs.dart';
 import '../../providers/theme_provider.dart';
@@ -17,7 +18,9 @@ import '../../core/constants/themes/app_theme_id.dart';
 
 class _KeepAlivePage extends StatefulWidget {
   final Widget child;
+
   const _KeepAlivePage({required this.child});
+
   @override
   State<_KeepAlivePage> createState() => _KeepAlivePageState();
 }
@@ -26,6 +29,7 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -35,15 +39,17 @@ class _KeepAlivePageState extends State<_KeepAlivePage>
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
+
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 0;
+  int _currentIndex = HomeNav.trending;
   int _drawerEpoch = 0;
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late final PageController _pageController;
+
   final Set<int> _visitedTabs = {};
 
   static final List<Widget Function()> _screenBuilders = [
@@ -115,14 +121,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _openSearch() {
+  void _openSearch({String? query}) {
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const SearchScreen(),
+        builder: (_) => SearchScreen(initialQuery: query),
         fullscreenDialog: true,
         settings: const RouteSettings(name: RouteNames.search),
       ),
     );
+  }
+
+  Future<void> _openVoiceSearch() async {
+    final phrase = await VoiceSearchSheet.show(context);
+    if (!mounted) return;
+    if (phrase == null || phrase.trim().isEmpty) return;
+    _openSearch(query: phrase.trim());
   }
 
   void _openDrawer() {
@@ -132,6 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final t = context.watch<ThemeProvider>().theme;
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: t.background,
@@ -153,18 +167,19 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               BrandRow(
                 onMenuTap: _openDrawer,
-                onSearchTap: _openSearch,
-                tabIndex: _currentIndex,
+                onSearchTap: () => _openSearch(),
               ),
               if (t.id != AppThemeId.silverChrome)
                 HomeTabs(
                   currentIndex: _currentIndex,
-                  onTabSelected: _onTabSelected,
+                  onHomeTap: () => _onTabSelected(HomeNav.trending),
+                  onVoiceTap: _openVoiceSearch,
                 ),
               Expanded(
                 child: PageView.builder(
                   controller: _pageController,
                   onPageChanged: _onPageChanged,
+                  physics: const NeverScrollableScrollPhysics(),
                   itemCount: _screenBuilders.length,
                   itemBuilder: (context, i) {
                     return _visitedTabs.contains(i)
@@ -177,7 +192,8 @@ class _HomeScreenState extends State<HomeScreen> {
               if (t.id == AppThemeId.silverChrome)
                 HomeTabs(
                   currentIndex: _currentIndex,
-                  onTabSelected: _onTabSelected,
+                  onHomeTap: () => _onTabSelected(HomeNav.trending),
+                  onVoiceTap: _openVoiceSearch,
                 ),
             ],
           ),
