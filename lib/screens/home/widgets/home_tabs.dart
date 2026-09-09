@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/themes/app_theme_id.dart';
 import '../../../core/utils/home_nav.dart';
+import '../../../core/widgets/hold_mic_button.dart';
 import '../../../providers/player_provider.dart';
 import '../../../providers/theme_provider.dart';
 
@@ -41,13 +42,17 @@ class HomeTabs extends StatelessWidget {
               colorOff: t.textSecondary,
               onTap: onHomeTap,
             ),
-            _AppleIcon(
-              icon: Icons.mic,
-              label: 'Voice search',
-              selected: false,
-              colorOn: t.accent,
-              colorOff: t.textSecondary,
-              onTap: onVoiceTap,
+            Expanded(
+              child: HoldMicButton(
+                idleColor: t.textSecondary,
+                holdColor: t.accent,
+                onArmed: onVoiceTap,
+                builder: (color, progress) => Icon(
+                  Icons.mic,
+                  size: 39,
+                  color: color,
+                ),
+              ),
             ),
           ],
         ),
@@ -71,12 +76,17 @@ class HomeTabs extends StatelessWidget {
             color: t.textPrimary,
             onTap: onHomeTap,
           ),
-          _SimpleIcon(
-            icon: Icons.mic,
-            label: 'Voice search',
-            selected: false,
-            color: t.textPrimary,
-            onTap: onVoiceTap,
+          Expanded(
+            child: HoldMicButton(
+              idleColor: t.textPrimary.withOpacity(0.45),
+              holdColor: t.accent,
+              onArmed: onVoiceTap,
+              builder: (color, progress) => Icon(
+                Icons.mic,
+                size: 28,
+                color: color,
+              ),
+            ),
           ),
         ],
       ),
