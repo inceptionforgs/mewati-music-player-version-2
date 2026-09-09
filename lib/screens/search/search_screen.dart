@@ -4,6 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../../core/constants/app_themes.dart';
 import '../../core/utils/debouncer.dart';
 import '../../core/widgets/error_widget.dart';
+import '../../core/widgets/hold_mic_button.dart';
 import '../../models/song.dart';
 import '../../models/singer.dart';
 import '../../providers/songs_provider.dart';
@@ -12,6 +13,7 @@ import '../../providers/theme_provider.dart';
 import '../../services/app_cache_manager.dart';
 import '../../services/singers_service.dart';
 import '../singers/singer_profile_screen.dart';
+import 'voice_search_sheet.dart';
 import 'widgets/search_result_row.dart';
 
 enum _SearchItemType { singerHeader, singerRow, songHeader, songRow }
@@ -188,6 +190,17 @@ class _SearchScreenState extends State<SearchScreen> {
     _performSearch(_searchController.text);
   }
 
+  Future<void> _openVoiceSearch() async {
+    final phrase = await VoiceSearchSheet.show(context);
+    if (!mounted) return;
+    final q = phrase?.trim() ?? '';
+    if (q.isEmpty) return;
+    _searchController.text = q;
+    _searchController.selection =
+        TextSelection.collapsed(offset: q.length);
+    await _performSearch(q);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.watch<ThemeProvider>().theme;
@@ -239,15 +252,34 @@ class _SearchScreenState extends State<SearchScreen> {
                           AnimatedBuilder(
                             animation: _searchController,
                             builder: (context, _) {
-                              if (_searchController.text.isEmpty) {
-                                return const SizedBox.shrink();
-                              }
-                              return IconButton(
-                                icon: Icon(Icons.close,
-                                    size: 18, color: t.textSecondary),
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(),
-                                onPressed: () => _searchController.clear(),
+                              return Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (_searchController.text.isNotEmpty)
+                                    IconButton(
+                                      icon: Icon(Icons.close,
+                                          size: 20, color: t.textSecondary),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                          minWidth: 36, minHeight: 36),
+                                      onPressed: () =>
+                                          _searchController.clear(),
+                                    ),
+                                  HoldMicButton(
+                                    idleColor: t.textPrimary,
+                                    holdColor: t.accent,
+                                    onArmed: _openVoiceSearch,
+                                    builder: (color, progress) => SizedBox(
+                                      width: 36,
+                                      height: 36,
+                                      child: Icon(
+                                        Icons.mic,
+                                        size: 22,
+                                        color: color,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               );
                             },
                           ),
