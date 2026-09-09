@@ -5,7 +5,7 @@ class RouteNames {
   static const String nowPlaying = '/now-playing';
   static const String feedback = '/feedback';
   static const String advanceSettings = '/advance-settings';
+  static const String soundSettings = '/sound-settings';
   static const String driveMode = '/drive-mode';
   static const String search = '/search';
 }
-
