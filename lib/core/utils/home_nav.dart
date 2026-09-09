@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import '../../routes/app_router.dart';
 import '../../routes/route_names.dart';
 
-/// Home tab + "jump to current Serial No. in the list" (all themes).
 class HomeNav {
   HomeNav._();
 
@@ -14,14 +13,13 @@ class HomeNav {
   static const int favorites = 3;
   static const int downloads = 4;
 
-  static final ValueNotifier<int> tabIndex = ValueNotifier<int>(songs);
+  static final ValueNotifier<int> tabIndex = ValueNotifier<int>(trending);
   static final ValueNotifier<String?> revealSongId = ValueNotifier<String?>(null);
 
   static void goTab(int index) {
     tabIndex.value = index.clamp(songs, downloads);
   }
 
-  /// Close overlays, land on Serial No. tab, scroll that song into view.
   static void showCurrentSongInList(String? songId) {
     goTab(songs);
     revealSongId.value = songId;
