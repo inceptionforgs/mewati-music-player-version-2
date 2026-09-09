@@ -12,6 +12,7 @@ import 'package:mewati_tune_player/screens/search/widgets/search_result_row.dart
 class _FakeTheme {
   final Color surface = Colors.grey;
   final Color textPrimary = Colors.white;
+  final Color textSecondary = Colors.white70;
   final Color accent = Colors.deepOrange;
   final Color background = Colors.black;
   final AppThemeId id = AppThemeId.walkmanOrange;
@@ -29,8 +30,6 @@ void main() {
         ChangeNotifierProvider(create: (_) => FavoritesProvider()),
         ChangeNotifierProvider(create: (_) => DownloadsProvider()),
         ChangeNotifierProvider(create: (_) => LikesProvider()),
-        // autoInit: false — this test only needs the provider's default
-        // (empty) state, not real audio-stream subscriptions.
         ChangeNotifierProvider(create: (_) => PlayerProvider(autoInit: false)),
       ],
       child: MaterialApp(
@@ -63,5 +62,3 @@ void main() {
     expect(find.text('Two'), findsNothing);
   });
 }
-
-
