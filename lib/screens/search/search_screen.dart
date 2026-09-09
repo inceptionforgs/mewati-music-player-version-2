@@ -34,7 +34,9 @@ double _cardRadius(AppThemeId id) {
 }
 
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({Key? key}) : super(key: key);
+  final String? initialQuery;
+
+  const SearchScreen({Key? key, this.initialQuery}) : super(key: key);
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -59,6 +61,14 @@ class _SearchScreenState extends State<SearchScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    final seed = widget.initialQuery?.trim();
+    if (seed != null && seed.isNotEmpty) {
+      _searchController.text = seed;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _performSearch(seed);
+      });
+    }
   }
 
   @override
@@ -101,15 +111,37 @@ class _SearchScreenState extends State<SearchScreen> {
     try {
       final songsProvider = context.read<SongsProvider>();
 
-      final results = await Future.wait<dynamic>([
-        songsProvider.searchSongsRemote(term),
-        _singersService.searchSingers(term),
-      ]);
+      List<Song> songs = const [];
+      List<Singer> singers = const [];
+      Object? songErr;
+      Object? singerErr;
+
+      try {
+        songs = await songsProvider.searchSongsRemote(term);
+      } catch (e) {
+        songErr = e;
+        songs = songsProvider.searchSongsLocal(term);
+      }
+
+      try {
+        singers = await _singersService.searchSingers(term);
+      } catch (e) {
+        singerErr = e;
+      }
 
       if (!mounted || gen != _searchGeneration) return;
 
-      final songs = results[0] as List<Song>;
-      final singers = results[1] as List<Singer>;
+      if (songErr != null && singerErr != null && songs.isEmpty && singers.isEmpty) {
+        setState(() {
+          _songResults = [];
+          _singerResults = [];
+          _items = const [];
+          _isSearching = true;
+          _isLoading = false;
+          _errorMessage = songErr.toString();
+        });
+        return;
+      }
 
       setState(() {
         _songResults = songs;
@@ -457,5 +489,3 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 }
-
-
