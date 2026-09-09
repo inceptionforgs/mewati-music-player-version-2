@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import '../../core/widgets/app_drawer.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../routes/route_names.dart';
 import 'widgets/album_art.dart';
 import 'widgets/now_playing_actions.dart';
 import 'widgets/player_controls.dart';
@@ -46,7 +47,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
   // + feedback), which isn't the actual equalizer. This now takes the user
   // straight to the Custom Equalizer tab in Advance Settings.
   void _openEqualizerSettings() {
-    _scaffoldKey.currentState?.openDrawer();
+    Navigator.of(context).pushNamed(RouteNames.soundSettings);
   }
 
   @override
@@ -265,7 +266,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                                     ],
                                   ),
                                 ),
-                              ),
+ mar                              ),
                             NowPlayingActions(
                               song: song,
                               onTimerTap: _openSleepTimerSheet,
