@@ -1,7 +1,11 @@
 package com.mewatitune.player
 
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import com.ryanheise.just_audio.SoftwareEqAudioProcessor
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import kotlin.math.PI
@@ -22,6 +26,9 @@ import kotlin.math.tanh
  */
 class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, SoftwareEqAudioProcessor.Engine {
     private var channel: MethodChannel? = null
+    private var bassChannel: EventChannel? = null
+    private var bassSink: EventChannel.EventSink? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     companion object {
         @Volatile
@@ -64,10 +71,24 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
     private var jhanEnvR = 0f
     private var jhanSlowL = 0f
     private var jhanSlowR = 0f
+    private var meterLpL = 0f
+    private var meterLpR = 0f
+    @Volatile private var bassEnv = 0f
+    private var lastBassPost = 0L
 
     override fun onAttachedToEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(binding.binaryMessenger, "mewati.sound/dsp")
         channel?.setMethodCallHandler(this)
+        bassChannel = EventChannel(binding.binaryMessenger, "mewati.sound/bassEnergy")
+        bassChannel?.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                bassSink = events
+                events?.success(bassEnv)
+            }
+            override fun onCancel(arguments: Any?) {
+                bassSink = null
+            }
+        })
         SoftwareEqAudioProcessor.setEngine(this)
         lastApplyArgs?.let { apply(it) }
     }
@@ -75,6 +96,9 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel?.setMethodCallHandler(null)
         channel = null
+        bassChannel?.setStreamHandler(null)
+        bassChannel = null
+        bassSink = null
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
@@ -124,6 +148,9 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
             jhanEnvR = 0f
             jhanSlowL = 0f
             jhanSlowR = 0f
+            meterLpL = 0f
+            meterLpR = 0f
+            bassEnv = 0f
         }
     }
 
@@ -227,6 +254,11 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
         }
     }
 
+    /**
+     * After FX, scale the buffer so wet peak ≤ dry peak (and ≤ 0.89).
+     * This is what actually stops digital fatna — not the old per-sample
+     * tanh limiter, which was itself the crackle when shelves stacked.
+     */
     private fun applyHeadroom(
         pcm: ShortArray,
         frames: Int,
@@ -264,6 +296,14 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
     private fun airAlpha(): Float =
         (2.0 * PI * 4800.0 / sampleRate).toFloat().coerceIn(0.20f, 0.85f)
 
+    private fun meterBass(absBody: Float) {
+        bassEnv += 0.22f * ((absBody * 3.4f).coerceAtMost(1f) - bassEnv)
+        val now = SystemClock.uptimeMillis()
+        if (now - lastBassPost < 32) return
+        lastBassPost = now
+        val v = bassEnv
+        mainHandler.post { bassSink?.success(v) }
+    }
     private fun processMonoSplit(pcm: ShortArray, frames: Int) {
         val tb = truBass * 0.92
         val tt = truTreble * 0.92
@@ -280,6 +320,8 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
             val dry = pcm[n].toFloat() / 32768f
             val ad = abs(dry)
             if (ad > dryPeak) dryPeak = ad
+            meterLpL += aLow * (dry - meterLpL)
+            meterBass(abs(meterLpL))
             var s = dry
             if (doBass) {
                 splitLpL += aLow * (dry - splitLpL)
@@ -335,6 +377,9 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
             val dryR = pcm[i + 1].toFloat() / 32768f
             val ad = maxOf(abs(dryL), abs(dryR))
             if (ad > dryPeak) dryPeak = ad
+            meterLpL += aLow * (dryL - meterLpL)
+            meterLpR += aLow * (dryR - meterLpR)
+            meterBass(maxOf(abs(meterLpL), abs(meterLpR)))
             var ol = dryL
             var orr = dryR
             if (doBass) {
@@ -396,12 +441,15 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
         val tb = truBass * 0.92
         val mk = makeupLin.toFloat()
         val bass = bassLin.toFloat()
+        val aLow = splitAlpha()
         var dryPeak = 1.0e-6f
         var wetPeak = 1.0e-6f
         for (n in 0 until frames) {
             val dry = pcm[n].toFloat() / 32768f
             val ad = abs(dry)
             if (ad > dryPeak) dryPeak = ad
+            meterLpL += aLow * (dry - meterLpL)
+            meterBass(abs(meterLpL))
             var s = dry
             for (b in bands) s = b.tickL(s)
             s = focusBand.tickL(s)
@@ -427,6 +475,7 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
         val delay = haasSamples
         val mk = makeupLin.toFloat()
         val bass = bassLin.toFloat()
+        val aLow = splitAlpha()
         var dryPeak = 1.0e-6f
         var wetPeak = 1.0e-6f
         var i = 0
@@ -435,6 +484,9 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
             val dryR = pcm[i + 1].toFloat() / 32768f
             val ad = maxOf(abs(dryL), abs(dryR))
             if (ad > dryPeak) dryPeak = ad
+            meterLpL += aLow * (dryL - meterLpL)
+            meterLpR += aLow * (dryR - meterLpR)
+            meterBass(maxOf(abs(meterLpL), abs(meterLpR)))
             var l = dryL
             var r = dryR
             for (b in bands) {
