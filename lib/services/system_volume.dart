@@ -39,6 +39,14 @@ class SystemVolume {
     }
   }
 
+  static Future<bool> isHeadsetOrBluetooth() async {
+    try {
+      return await _ch.invokeMethod<bool>('headset') ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Stream<double> get changes =>
       _ev.receiveBroadcastStream().map((e) => (e as num).toDouble().clamp(0.0, 1.0));
 }
