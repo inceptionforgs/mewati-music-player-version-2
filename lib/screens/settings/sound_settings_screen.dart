@@ -119,7 +119,8 @@ class _SoundSettingsScreenState extends State<SoundSettingsScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.chevron_left, color: t.textPrimary, size: 28),
+                    icon:
+                        Icon(Icons.chevron_left, color: t.textPrimary, size: 28),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 4),
@@ -159,18 +160,20 @@ class _SoundSettingsScreenState extends State<SoundSettingsScreen> {
                     ),
                     child: Column(
                       children: [
-                        Text(
-                          selected.label.toUpperCase(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.4,
+                        if (!locked) ...[
+                          Text(
+                            selected.label.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.4,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 14),
+                        ],
                         SizedBox(
-                          height: 168,
+                          height: locked ? 236 : 168,
                           child: locked
                               ? const _MewatiBassLock()
                               : Row(
@@ -226,9 +229,12 @@ class _SoundSettingsScreenState extends State<SoundSettingsScreen> {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: InkWell(
-                        onTap: () {
-                          _selectPreset(preset.id);
-                          if (EqualizerService()
+                        onTap: () async {
+                          final was = selected.id;
+                          await _selectPreset(preset.id);
+                          if (!context.mounted) return;
+                          if (was == preset.id) return;
+                          if (await EqualizerService()
                               .shouldHintHeadphones(preset.id)) {
                             final messenger = ScaffoldMessenger.of(context);
                             messenger.clearSnackBars();
@@ -344,7 +350,8 @@ class _WalkmanBand extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: fill,
                     borderRadius: BorderRadius.circular(1.5),
-                    border: Border.all(color: edge.withOpacity(0.7), width: 0.4),
+                    border:
+                        Border.all(color: edge.withOpacity(0.7), width: 0.4),
                   ),
                 );
               }),
@@ -457,27 +464,29 @@ class _BassWavePainter extends CustomPainter {
       ..color = const Color(0xFFF3D59A).withOpacity(0.35 + 0.25 * pulse)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6;
-    canvas.drawCircle(c, radius * 0.72, ring);
-    canvas.drawCircle(c, radius * (0.86 + 0.04 * pulse), ring);
+    final baseR = radius * 0.46;
+    canvas.drawCircle(c, baseR, ring);
+    canvas.drawCircle(c, radius * (0.92 + 0.03 * pulse), ring);
 
     final bar = Paint()
       ..color = const Color(0xFFF3D59A)
-      ..strokeWidth = 2.4
+      ..strokeWidth = 13
       ..strokeCap = StrokeCap.round;
 
-    const ticks = 42;
+    const ticks = 16;
+    final maxLen = radius * 0.46;
     for (var i = 0; i < ticks; i++) {
       final a = (i / ticks) * math.pi * 2;
       final wave = (math.sin(a * 3) + 1) / 2;
-      final len = pulse < 0.03 ? 0.0 : 6.0 + 16.0 * wave * pulse;
-      final inner = radius * 0.90;
+      final len =
+          pulse < 0.02 ? 0.0 : maxLen * (0.16 + 0.84 * wave) * pulse;
       final p1 = Offset(
-        c.dx + math.cos(a) * inner,
-        c.dy + math.sin(a) * inner,
+        c.dx + math.cos(a) * baseR,
+        c.dy + math.sin(a) * baseR,
       );
       final p2 = Offset(
-        c.dx + math.cos(a) * (inner + len),
-        c.dy + math.sin(a) * (inner + len),
+        c.dx + math.cos(a) * (baseR + len),
+        c.dy + math.sin(a) * (baseR + len),
       );
       canvas.drawLine(p1, p2, bar);
     }
