@@ -7,11 +7,13 @@ import '../../services/bass_energy.dart';
 
 class MewatiBassButton extends StatefulWidget {
   final double size;
+  final bool active;
   final VoidCallback? onPressed;
 
   const MewatiBassButton({
     super.key,
     this.size = 44,
+    this.active = true,
     this.onPressed,
   });
 
@@ -64,38 +66,42 @@ class _MewatiBassButtonState extends State<MewatiBassButton>
   @override
   Widget build(BuildContext context) {
     final s = widget.size;
-    return SizedBox(
-      width: s,
-      height: s,
-      child: AnimatedBuilder(
-        animation: _pulse,
-        builder: (context, _) {
-          return Material(
-            color: Colors.transparent,
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: widget.onPressed,
-              child: CustomPaint(
-                painter: MewatiBassWavePainter(energy: _energy),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: _edge.withOpacity(0.55 + 0.35 * _energy),
-                      width: 1.1,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: _gold.withOpacity(0.22 + 0.45 * _energy),
-                        blurRadius: 8 + 10 * _energy,
+    return Opacity(
+      opacity: widget.active ? 1 : 0.42,
+      child: SizedBox(
+        width: s,
+        height: s,
+        child: AnimatedBuilder(
+          animation: _pulse,
+          builder: (context, _) {
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: widget.onPressed,
+                child: CustomPaint(
+                  painter: MewatiBassWavePainter(
+                      energy: widget.active ? _energy : 0),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: _edge.withOpacity(0.55 + 0.35 * _energy),
+                        width: 1.1,
                       ),
-                    ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: _gold.withOpacity(0.22 + 0.45 * _energy),
+                          blurRadius: 8 + 10 * _energy,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
