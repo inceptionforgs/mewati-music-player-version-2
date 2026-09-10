@@ -1,8 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:speech_to_text/speech_to_text.dart';
-import '../../core/widgets/hold_mic_button.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/theme_provider.dart';
 
@@ -31,7 +32,10 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet> {
   bool _listening = false;
   bool _failed = false;
   bool _busy = false;
+  bool _inited = false;
+  bool _closing = false;
   double _level = 0.25;
+  Timer? _settle;
 
   @override
   void initState() {
@@ -41,6 +45,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet> {
 
   @override
   void dispose() {
+    _settle?.cancel();
     _speech.stop();
     _speech.cancel();
     super.dispose();
@@ -56,6 +61,7 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet> {
   Future<String?> _pickLocale() async {
     try {
       final locales = await _speech.locales();
+      if (locales.isEmpty) return null;
       String? hi;
       String? enIn;
       for (final locale in locales) {
@@ -65,13 +71,78 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet> {
       }
       return hi ?? enIn;
     } catch (_) {
-      return 'hi_IN';
+      return null;
     }
   }
 
+  void _fail(String message) {
+    if (!mounted || _closing) return;
+    _busy = false;
+    _listening = false;
+    setState(() {
+      _failed = true;
+      _status = message;
+    });
+  }
+
+  void _popWith(String phrase) {
+    if (!mounted || _closing) return;
+    _closing = true;
+    _listening = false;
+    _busy = false;
+    Navigator.of(context).pop(phrase);
+  }
+
+  void _onStatus(String status) {
+    if (!mounted || _closing) return;
+    if (status != 'done' && status != 'notListening') return;
+    _listening = false;
+    final phrase = _heard.trim();
+    if (phrase.isNotEmpty) {
+      _popWith(phrase);
+      return;
+    }
+    _settle?.cancel();
+    _settle = Timer(const Duration(milliseconds: 400), () {
+      if (!mounted || _closing) return;
+      final late = _heard.trim();
+      if (late.isNotEmpty) {
+        _popWith(late);
+      } else {
+        _fail("Didn't catch that. Try again");
+      }
+    });
+  }
+
+  void _onError(dynamic error) {
+    if (!mounted || _closing) return;
+    final id = error.errorMsg?.toString() ?? '';
+    if (id == 'error_no_match' ||
+        id == 'error_speech_timeout' ||
+        id == 'error_none') {
+      _settle?.cancel();
+      _settle = Timer(const Duration(milliseconds: 400), () {
+        if (!mounted || _closing) return;
+        final late = _heard.trim();
+        if (late.isNotEmpty) {
+          _popWith(late);
+        } else {
+          _fail("Didn't catch that. Try again");
+        }
+      });
+      return;
+    }
+    _fail(
+      id == 'error_network'
+          ? 'No internet. Voice search needs Google speech.'
+          : "Didn't catch that. Try again",
+    );
+  }
+
   Future<void> _start() async {
-    if (_busy) return;
+    if (_busy || _listening || _closing) return;
     _busy = true;
+    _settle?.cancel();
     setState(() {
       _failed = false;
       _heard = '';
@@ -83,58 +154,34 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet> {
     final mic = await Permission.microphone.request();
     if (!mounted) return;
     if (!mic.isGranted) {
-      _busy = false;
-      setState(() {
-        _failed = true;
-        _status = mic.isPermanentlyDenied
+      _fail(
+        mic.isPermanentlyDenied
             ? 'Microphone permission is off. Open Settings to allow it.'
-            : 'Allow microphone to search by voice.';
-      });
+            : 'Allow microphone to search by voice.',
+      );
       return;
     }
 
     await _hushPlayer();
     if (!mounted) return;
-
-    final ok = await _speech.initialize(
-      onStatus: (status) {
-        if (!mounted) return;
-        if (status == 'done' || status == 'notListening') {
-          _finishIfHeard();
-        }
-      },
-      onError: (error) {
-        if (!mounted) return;
-        final id = error.errorMsg;
-        if (id == 'error_no_match' ||
-            id == 'error_speech_timeout' ||
-            id == 'error_none') {
-          setState(() {
-            _listening = false;
-            _failed = true;
-            _status = "Didn't catch that. Try again";
-          });
-          _busy = false;
-          return;
-        }
-        setState(() {
-          _listening = false;
-          _failed = true;
-          _status = id == 'error_network'
-              ? 'No internet. Voice search needs Google speech.'
-              : "Didn't catch that. Try again";
-        });
-        _busy = false;
-      },
-    );
+    await Future<void>.delayed(const Duration(milliseconds: 280));
     if (!mounted) return;
-    if (!ok) {
-      _busy = false;
-      setState(() {
-        _failed = true;
-        _status = 'Google voice search is not available on this phone.';
-      });
-      return;
+
+    if (!_inited || !_speech.isAvailable) {
+      final ok = await _speech.initialize(
+        onStatus: _onStatus,
+        onError: _onError,
+      );
+      if (!mounted) return;
+      _inited = ok;
+      if (!ok) {
+        _fail('Google voice search is not available on this phone.');
+        return;
+      }
+    }
+
+    if (_speech.isListening) {
+      await _speech.stop();
     }
 
     final localeId = await _pickLocale();
@@ -145,58 +192,53 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet> {
       _status = 'Listening...';
     });
 
-    try {
-      await _speech.listen(
-        localeId: localeId,
+    Future<void> startListen({String? locale}) {
+      return _speech.listen(
+        localeId: locale,
         onResult: (result) {
-          if (!mounted) return;
+          if (!mounted || _closing) return;
           setState(() => _heard = result.recognizedWords);
-          if (result.finalResult) _finishIfHeard();
+          if (result.finalResult && result.recognizedWords.trim().isNotEmpty) {
+            _popWith(result.recognizedWords.trim());
+          }
         },
         onSoundLevelChange: (level) {
           if (!mounted || !_listening) return;
           setState(() => _level = ((level + 8) / 18).clamp(0.22, 1.0));
         },
         listenOptions: SpeechListenOptions(
-          listenMode: ListenMode.search,
+          listenMode: ListenMode.dictation,
           partialResults: true,
           cancelOnError: false,
-          listenFor: const Duration(seconds: 8),
-          pauseFor: const Duration(seconds: 2),
+          listenFor: const Duration(seconds: 30),
+          pauseFor: const Duration(seconds: 4),
         ),
       );
+    }
+
+    try {
+      await startListen(locale: localeId);
     } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _listening = false;
-        _failed = true;
-        _status = "Didn't catch that. Try again";
-      });
+      try {
+        await startListen();
+      } catch (_) {
+        _fail("Didn't catch that. Try again");
+        return;
+      }
     }
     _busy = false;
-  }
-
-  void _finishIfHeard() {
-    if (!mounted) return;
-    final phrase = _heard.trim();
-    if (phrase.isEmpty) {
-      if (_listening || !_failed) {
-        setState(() {
-          _listening = false;
-          _failed = true;
-          _status = "Didn't catch that. Try again";
-        });
-      }
-      return;
-    }
-    _listening = false;
-    Navigator.of(context).pop(phrase);
   }
 
   void _onMicTap() {
     if (_listening) {
       _speech.stop();
-      _finishIfHeard();
+      final phrase = _heard.trim();
+      if (phrase.isNotEmpty) {
+        _popWith(phrase);
+      } else {
+        _fail("Didn't catch that. Try again");
+      }
       return;
     }
     _start();
@@ -245,86 +287,48 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet> {
               ),
             ],
             const Spacer(flex: 3),
-            if (_listening)
-              GestureDetector(
-                onTap: _onMicTap,
-                child: SizedBox(
-                  width: 140,
-                  height: 140,
-                  child: Center(
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 80),
-                      width: ring,
-                      height: ring,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: t.accent.withOpacity(0.16),
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: t.accent,
-                          ),
-                          child: Icon(
-                            Icons.mic,
-                            color: t.background,
-                            size: 36,
-                          ),
+            GestureDetector(
+              onTap: _onMicTap,
+              child: SizedBox(
+                width: 140,
+                height: 140,
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 80),
+                    width: _listening ? ring : 100,
+                    height: _listening ? ring : 100,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: (_failed ? t.textSecondary : t.accent)
+                          .withOpacity(0.16),
+                    ),
+                    child: Center(
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _failed ? t.textSecondary : t.accent,
+                        ),
+                        child: Icon(
+                          _failed && !_listening ? Icons.mic_off : Icons.mic,
+                          color: t.background,
+                          size: 36,
                         ),
                       ),
                     ),
                   ),
                 ),
-              )
-            else
-              HoldMicButton(
-                idleColor: _failed ? t.textSecondary : t.accent,
-                holdColor: t.accent,
-                onArmed: _start,
-                builder: (color, progress) {
-                  return SizedBox(
-                    width: 140,
-                    height: 140,
-                    child: Center(
-                      child: Container(
-                        width: 72 + 28 * progress,
-                        height: 72 + 28 * progress,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: color.withOpacity(0.16 + 0.24 * progress),
-                        ),
-                        child: Center(
-                          child: Container(
-                            width: 72,
-                            height: 72,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: color,
-                            ),
-                            child: Icon(
-                              _failed ? Icons.mic_off : Icons.mic,
-                              color: t.background,
-                              size: 36,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                },
               ),
+            ),
             const SizedBox(height: 12),
             Text(
               _listening
                   ? 'Tap the mic when you are done'
-                  : 'Hold the mic for 2 seconds',
+                  : 'Tap the mic to try again',
               style: TextStyle(color: t.textSecondary, fontSize: 13),
             ),
-            if (_failed &&
-                _status.contains('Settings'))
+            if (_failed && _status.contains('Settings'))
               TextButton(
                 onPressed: () => openAppSettings(),
                 child: Text('Open Settings', style: TextStyle(color: t.accent)),
