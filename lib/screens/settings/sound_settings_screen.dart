@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../core/constants/app_themes.dart';
 import '../../providers/theme_provider.dart';
+import '../../services/bass_energy.dart';
 import '../../services/equalizer_service.dart';
 import '../../services/eq_presets.dart';
 
@@ -102,6 +104,11 @@ class _SoundSettingsScreenState extends State<SoundSettingsScreen> {
     final locked = selected.id == 'mewati-bass';
     final gains = _gainsFor(selected);
 
+    final apple = t.id == AppThemeId.silverChrome;
+    final panelTop = apple ? const Color(0xFF243528) : _panelTop;
+    final panelBottom = apple ? const Color(0xFF121A14) : _panelBottom;
+    final panelBorder = apple ? t.accent : const Color(0xFFFFC48A);
+
     return Scaffold(
       backgroundColor: t.background,
       body: SafeArea(
@@ -117,7 +124,7 @@ class _SoundSettingsScreenState extends State<SoundSettingsScreen> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'SOUND SETTING',
+                    'SOUND EFFECT',
                     style: TextStyle(
                       color: t.textPrimary,
                       fontSize: 16,
@@ -136,10 +143,10 @@ class _SoundSettingsScreenState extends State<SoundSettingsScreen> {
                     padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [_panelTop, _panelBottom],
+                        colors: [panelTop, panelBottom],
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -148,7 +155,7 @@ class _SoundSettingsScreenState extends State<SoundSettingsScreen> {
                           offset: const Offset(0, 8),
                         ),
                       ],
-                      border: Border.all(color: const Color(0xFFFFC48A), width: 1.2),
+                      border: Border.all(color: panelBorder, width: 1.2),
                     ),
                     child: Column(
                       children: [
@@ -359,6 +366,10 @@ class _MewatiBassLock extends StatefulWidget {
 class _MewatiBassLockState extends State<_MewatiBassLock>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
+  StreamSubscription<double>? _sub;
+  double _energy = 0;
+  double _target = 0;
+  int _lastEventMs = 0;
 
   @override
   void initState() {
@@ -367,10 +378,26 @@ class _MewatiBassLockState extends State<_MewatiBassLock>
       vsync: this,
       duration: const Duration(milliseconds: 1600),
     )..repeat();
+    _pulse.addListener(_tick);
+    _sub = BassEnergy.stream.listen((v) {
+      _target = v;
+      _lastEventMs = DateTime.now().millisecondsSinceEpoch;
+    });
+  }
+
+  void _tick() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastEventMs > 90) {
+      _target *= 0.86;
+    }
+    _energy += (_target - _energy) * 0.38;
+    if (_energy < 0.004) _energy = 0;
   }
 
   @override
   void dispose() {
+    _sub?.cancel();
+    _pulse.removeListener(_tick);
     _pulse.dispose();
     super.dispose();
   }
@@ -381,7 +408,7 @@ class _MewatiBassLockState extends State<_MewatiBassLock>
       animation: _pulse,
       builder: (context, _) {
         return CustomPaint(
-          painter: _BassWavePainter(t: _pulse.value),
+          painter: _BassWavePainter(energy: _energy),
           child: const Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -397,7 +424,7 @@ class _MewatiBassLockState extends State<_MewatiBassLock>
                   ),
                 ),
                 Text(
-                  'BASS',
+                  'BASS™',
                   style: TextStyle(
                     color: Color(0xFFF3D59A),
                     fontSize: 22,
@@ -416,15 +443,15 @@ class _MewatiBassLockState extends State<_MewatiBassLock>
 }
 
 class _BassWavePainter extends CustomPainter {
-  final double t;
+  final double energy;
 
-  _BassWavePainter({required this.t});
+  _BassWavePainter({required this.energy});
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
     final radius = math.min(size.width, size.height) / 2 - 6;
-    final pulse = 0.55 + 0.45 * math.sin(t * math.pi * 2);
+    final pulse = energy.clamp(0.0, 1.0);
 
     final ring = Paint()
       ..color = const Color(0xFFF3D59A).withOpacity(0.35 + 0.25 * pulse)
@@ -441,8 +468,8 @@ class _BassWavePainter extends CustomPainter {
     const ticks = 42;
     for (var i = 0; i < ticks; i++) {
       final a = (i / ticks) * math.pi * 2;
-      final wave = (math.sin(a * 3 + t * math.pi * 2) + 1) / 2;
-      final len = 6.0 + 16.0 * wave * pulse;
+      final wave = (math.sin(a * 3) + 1) / 2;
+      final len = pulse < 0.03 ? 0.0 : 6.0 + 16.0 * wave * pulse;
       final inner = radius * 0.90;
       final p1 = Offset(
         c.dx + math.cos(a) * inner,
@@ -458,5 +485,5 @@ class _BassWavePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BassWavePainter oldDelegate) =>
-      oldDelegate.t != t;
+      oldDelegate.energy != energy;
 }
