@@ -11,21 +11,12 @@ import 'eq_presets.dart';
 import 'sound_policy.dart';
 import 'system_volume.dart';
 
-/// Drop-in replacement for the old AndroidEqualizer service.
-///
-/// NEVER create AndroidEqualizer / AndroidLoudnessEnhancer.
-/// PlayerService must use: `androidAudioEffects: const []`
-///
-/// Native PCM engine is optional (MethodChannel). If missing or it throws,
-/// playback continues dry — app does not crash.
 class EqualizerService {
   static final EqualizerService _instance = EqualizerService._internal();
   factory EqualizerService() => _instance;
   EqualizerService._internal();
 
   static const _channel = MethodChannel('mewati.sound/dsp');
-  /// Single source of truth for the active preset id. ThemeProvider and
-  /// this service both read/write this key. Legacy `eq_preset` is migrated.
   static const presetPrefsKey = 'mtp-eq-preset-v1';
   static const _legacyPresetKey = 'eq_preset';
   static const _customEqBandsKey = 'custom_eq_band_gains';
@@ -62,7 +53,6 @@ class EqualizerService {
   static double bassScaleForVolume(double vol) =>
       (1.65 - 1.5 * vol.clamp(0.0, 1.0)).clamp(0.35, 1.50);
 
-  /// Slider 1→100% boost, 10→60% … 100→10%. Net = slider × (1 + boost).
   static double loudnessBoostPctOriginal(double vol) {
     const pts = <List<double>>[
       [0.00, 1.00],
@@ -105,8 +95,6 @@ class EqualizerService {
     return 20.0 * math.log(lin) / math.ln10;
   }
 
-  /// Inverse of net = intent × (1 + boost(intent)). Lock-screen hardware
-  /// volume is the net; DSP makeup must follow intent without writing STREAM_MUSIC.
   static double invertLoudnessNet(String id, double net) {
     final n = net.clamp(0.0, 1.0);
     if (loudnessBoostPctFor(id, 0.5) <= 0) return n;
@@ -269,7 +257,11 @@ class EqualizerService {
     }
   }
 
-  bool shouldHintHeadphones(String id) => EqPresets.headphoneHintIds.contains(id);
+  Future<bool> shouldHintHeadphones(String id) async {
+    if (!EqPresets.headphoneHintIds.contains(id)) return false;
+    if (await SystemVolume.isHeadsetOrBluetooth()) return false;
+    return true;
+  }
 
   Future<void> applyCustomSnapshot({
     required List<double> bandGains,
@@ -349,16 +341,22 @@ class EqualizerService {
             .toList();
         gains = List<double>.generate(
           bandCount,
-          (i) => i < decoded.length ? decoded[i].clamp(EqPresets.minDb, EqPresets.maxDb) : 0.0,
+          (i) => i < decoded.length
+              ? decoded[i].clamp(EqPresets.minDb, EqPresets.maxDb)
+              : 0.0,
         );
       } else {
         gains = List<double>.filled(bandCount, 0.0);
       }
-      final bass = (prefs.getDouble(_customEqBassKey) ?? 0.0).clamp(0.0, maxBassBoostDb);
+      final bass =
+          (prefs.getDouble(_customEqBassKey) ?? 0.0).clamp(0.0, maxBassBoostDb);
       return (bandGains: gains, bassBoostDb: bass);
     } catch (e) {
       if (kDebugMode) debugPrint('EqualizerService loadPersistedCustomEq: $e');
-      return (bandGains: List<double>.filled(bandCount, 0.0), bassBoostDb: 0.0);
+      return (
+        bandGains: List<double>.filled(bandCount, 0.0),
+        bassBoostDb: 0.0
+      );
     }
   }
 
@@ -370,7 +368,8 @@ class EqualizerService {
   }
 
   Future<void> _applyPersistedCustomEq() async {
-    final saved = await loadPersistedCustomEq(bandCount: EqPresets.uiBandsHz.length);
+    final saved =
+        await loadPersistedCustomEq(bandCount: EqPresets.uiBandsHz.length);
     await _pushCustom(saved.bandGains, saved.bassBoostDb);
   }
 
@@ -427,7 +426,9 @@ class EqualizerService {
       });
     } catch (e) {
       _dspAlive = false;
-      if (kDebugMode) debugPrint('EqualizerService native apply failed, staying dry: $e');
+      if (kDebugMode) {
+        debugPrint('EqualizerService native apply failed, staying dry: $e');
+      }
     }
   }
 
