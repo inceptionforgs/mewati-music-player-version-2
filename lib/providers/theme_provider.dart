@@ -13,6 +13,7 @@ const _customShadeKey = 'custom_theme_shade';
 class ThemeProvider extends ChangeNotifier {
   AppThemeId _themeId = AppThemes.defaultThemeId;
   String _eqPreset = EqualizerService.defaultPresetId;
+  String _eqBeforeBass = EqualizerService.defaultPresetId;
 
   Color _customColor = AppThemes.walkmanOrange.accent;
   double _customShade = 0.5;
@@ -35,6 +36,7 @@ class ThemeProvider extends ChangeNotifier {
   }
 
   String get eqPreset => _eqPreset;
+  bool get mewatiBassOn => _eqPreset == 'mewati-bass';
 
   ThemeProvider() {
     _loadPreferences();
@@ -81,6 +83,9 @@ class ThemeProvider extends ChangeNotifier {
 
   Future<void> setEqPreset(String preset) async {
     if (_eqPreset == preset) return;
+    if (preset == 'mewati-bass' && _eqPreset != 'mewati-bass') {
+      _eqBeforeBass = _eqPreset;
+    }
     _eqPreset = preset;
     notifyListeners();
 
@@ -93,6 +98,18 @@ class ThemeProvider extends ChangeNotifier {
     }
 
     await EqualizerService().applyPreset(preset);
+  }
+
+  Future<void> toggleMewatiBass() async {
+    if (_eqPreset == 'mewati-bass') {
+      final back = _eqBeforeBass == 'mewati-bass'
+          ? EqualizerService.defaultPresetId
+          : _eqBeforeBass;
+      await setEqPreset(back);
+    } else {
+      _eqBeforeBass = _eqPreset;
+      await setEqPreset('mewati-bass');
+    }
   }
 
   void previewCustomTheme(Color color, double shade) {
