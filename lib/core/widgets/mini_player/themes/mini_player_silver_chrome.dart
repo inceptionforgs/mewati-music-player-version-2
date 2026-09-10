@@ -71,12 +71,15 @@ class MiniPlayerSilverChrome extends StatelessWidget {
                           return GestureDetector(
                             behavior: HitTestBehavior.opaque,
                             onTapDown: (d) {
-                              if (duration.inMilliseconds == 0 || box.maxWidth <= 0) {
+                              if (duration.inMilliseconds == 0 ||
+                                  box.maxWidth <= 0) {
                                 return;
                               }
-                              final r = (d.localPosition.dx / box.maxWidth).clamp(0.0, 1.0);
+                              final r = (d.localPosition.dx / box.maxWidth)
+                                  .clamp(0.0, 1.0);
                               playerProvider.seek(Duration(
-                                milliseconds: (r * duration.inMilliseconds).round(),
+                                milliseconds:
+                                    (r * duration.inMilliseconds).round(),
                               ));
                             },
                             child: SizedBox(
@@ -151,7 +154,8 @@ class MiniPlayerSilverChrome extends StatelessWidget {
                                 )
                               : ColoredBox(
                                   color: t.background,
-                                  child: Icon(Icons.music_note, color: t.accent),
+                                  child:
+                                      Icon(Icons.music_note, color: t.accent),
                                 ),
                         ),
                       ),
