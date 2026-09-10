@@ -1,4 +1,0 @@
-MTP-FIX-0852
-gradle wrapper files, revoke SQL, ciDebugSign, offline auth,
-playlist generation, window-then-probe, backward queue, play-count segment,
-advisory locks + ON CONFLICT, AtomicReference EQ (prior)
