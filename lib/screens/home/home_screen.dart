@@ -189,12 +189,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               const AdBannerWidget(),
-              if (t.id == AppThemeId.silverChrome)
-                HomeTabs(
-                  currentIndex: _currentIndex,
-                  onHomeTap: () => _onTabSelected(HomeNav.trending),
-                  onVoiceTap: _openVoiceSearch,
-                ),
             ],
           ),
         ),
