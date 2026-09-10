@@ -19,6 +19,28 @@ class BrandRow extends StatelessWidget {
     final t = context.watch<ThemeProvider>().theme;
     final apple = t.id == AppThemeId.silverChrome;
 
+    if (apple) {
+      return Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+        child: SizedBox(
+          height: 48,
+          child: Row(
+            children: [
+              IconButton(
+                icon: Icon(Icons.menu, color: t.textPrimary, size: 26),
+                onPressed: onMenuTap,
+              ),
+              const Spacer(),
+              IconButton(
+                icon: Icon(Icons.search, color: t.textPrimary, size: 26),
+                onPressed: onSearchTap,
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: EdgeInsets.fromLTRB(8, apple ? 8 : 6, 8, apple ? 8 : 0),
       child: SizedBox(
