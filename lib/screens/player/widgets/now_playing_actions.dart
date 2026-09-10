@@ -11,7 +11,10 @@ import '../../../core/constants/themes/app_theme_id.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/utils/home_nav.dart';
 import '../../../core/widgets/download_confirm.dart';
+import '../../../core/widgets/mewati_bass_button.dart';
 import '../../../routes/route_names.dart';
+import '../../../services/equalizer_service.dart';
+import '../../../services/eq_presets.dart';
 
 class NowPlayingActions extends StatelessWidget {
   final Song song;
@@ -24,6 +27,24 @@ class NowPlayingActions extends StatelessWidget {
     required this.onTimerTap,
     required this.onEqualizerTap,
   }) : super(key: key);
+
+  static Future<void> _toggleMewatiBass(BuildContext context) async {
+    final theme = context.read<ThemeProvider>();
+    final turningOn = !theme.mewatiBassOn;
+    await theme.toggleMewatiBass();
+    if (!context.mounted || !turningOn) return;
+    if (await EqualizerService().shouldHintHeadphones('mewati-bass')) {
+      if (!context.mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.clearSnackBars();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(EqPresets.headphoneHint),
+          duration: Duration(seconds: 4),
+        ),
+      );
+    }
+  }
 
   static void _showFailureSnackBar(BuildContext context, String message) {
     if (!context.mounted) return;
@@ -95,6 +116,7 @@ class NowPlayingActions extends StatelessWidget {
     final likesProvider = context.watch<LikesProvider>();
     final playerProvider = context.watch<PlayerProvider>();
     final t = context.watch<ThemeProvider>().theme;
+    final bassOn = context.watch<ThemeProvider>().mewatiBassOn;
 
     final isFav = favoritesProvider.isFavoriteSync(song.id);
     final isDownloaded = downloadsProvider.isDownloaded(song.id);
@@ -128,126 +150,138 @@ class NowPlayingActions extends StatelessWidget {
     return FittedBox(
       fit: BoxFit.scaleDown,
       child: Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        IconButton(
-          icon: Icon(
-            isFav ? Icons.favorite : Icons.favorite_border,
-            color: isFav ? Colors.redAccent : t.textPrimary.withOpacity(0.75),
-            size: 22,
-          ),
-          onPressed: () => _toggleFavorite(context, favoritesProvider, song),
-        ),
-        const SizedBox(width: 14),
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(
-                isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
-                color: isLiked ? const Color(0xFFFFD700) : t.textPrimary.withOpacity(0.75),
-                size: 22,
-              ),
-              onPressed: () => _toggleLike(context, likesProvider, song.id),
-            ),
-            Text(
-              formatCount(likeCount),
-              style: TextStyle(
-                color: t.textPrimary.withOpacity(0.75),
-                fontSize: 9,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(width: 14),
-        Semantics(
-          label: 'Shuffle',
-          button: true,
-          child: IconButton(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
             icon: Icon(
-              Icons.shuffle,
-              color: isShuffleOn ? t.accent : t.textPrimary.withOpacity(0.75),
+              isFav ? Icons.favorite : Icons.favorite_border,
+              color: isFav ? Colors.redAccent : t.textPrimary.withOpacity(0.75),
               size: 22,
             ),
-            onPressed: () => playerProvider.toggleShuffle(),
+            onPressed: () => _toggleFavorite(context, favoritesProvider, song),
           ),
-        ),
-        const SizedBox(width: 14),
-        if (isDownloaded)
-          IconButton(
-            icon: const Icon(Icons.check_circle, color: Color(0xFF4CD964), size: 22),
-            onPressed: () =>
-                _confirmRemoveDownload(context, downloadsProvider, song),
-          )
-        else if (isDownloading)
-          InkWell(
-            borderRadius: BorderRadius.circular(18),
-            onTap: () => downloadsProvider.cancelDownload(song.id),
-            child: SizedBox(
-              width: 36,
-              height: 36,
-              child: ValueListenableBuilder<Map<String, double>>(
-                valueListenable: downloadsProvider.progressNotifier,
-                builder: (context, progressMap, _) {
-                  final progress = progressMap[song.id] ?? 0.0;
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 2.5,
-                        color: t.textPrimary,
-                      ),
-                      Text(
-                        '${(progress * 100).round()}',
-                        style: TextStyle(fontSize: 8.5, color: t.textPrimary),
-                      ),
-                    ],
-                  );
-                },
-              ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: MewatiBassButton(
+              size: 34,
+              active: bassOn,
+              onPressed: () => _toggleMewatiBass(context),
             ),
-          )
-        else
+          ),
+          const SizedBox(width: 10),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(
+                  isLiked ? Icons.thumb_up : Icons.thumb_up_outlined,
+                  color: isLiked
+                      ? const Color(0xFFFFD700)
+                      : t.textPrimary.withOpacity(0.75),
+                  size: 22,
+                ),
+                onPressed: () => _toggleLike(context, likesProvider, song.id),
+              ),
+              Text(
+                formatCount(likeCount),
+                style: TextStyle(
+                  color: t.textPrimary.withOpacity(0.75),
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 14),
+          Semantics(
+            label: 'Shuffle',
+            button: true,
+            child: IconButton(
+              icon: Icon(
+                Icons.shuffle,
+                color: isShuffleOn ? t.accent : t.textPrimary.withOpacity(0.75),
+                size: 22,
+              ),
+              onPressed: () => playerProvider.toggleShuffle(),
+            ),
+          ),
+          const SizedBox(width: 14),
+          if (isDownloaded)
+            IconButton(
+              icon: const Icon(Icons.check_circle,
+                  color: Color(0xFF4CD964), size: 22),
+              onPressed: () =>
+                  _confirmRemoveDownload(context, downloadsProvider, song),
+            )
+          else if (isDownloading)
+            InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: () => downloadsProvider.cancelDownload(song.id),
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: ValueListenableBuilder<Map<String, double>>(
+                  valueListenable: downloadsProvider.progressNotifier,
+                  builder: (context, progressMap, _) {
+                    final progress = progressMap[song.id] ?? 0.0;
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        CircularProgressIndicator(
+                          value: progress,
+                          strokeWidth: 2.5,
+                          color: t.textPrimary,
+                        ),
+                        Text(
+                          '${(progress * 100).round()}',
+                          style: TextStyle(fontSize: 8.5, color: t.textPrimary),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            )
+          else
+            IconButton(
+              icon: Icon(Icons.download_outlined,
+                  color: t.textPrimary.withOpacity(0.75), size: 22),
+              onPressed: () async {
+                final ok = await confirmDownload(context, song.title);
+                if (!ok || !context.mounted) return;
+                try {
+                  await downloadsProvider.downloadSong(song);
+                } catch (e) {
+                  if (!context.mounted) return;
+                  _showFailureSnackBar(
+                      context, 'Download failed. Please try again.');
+                }
+              },
+            ),
+          const SizedBox(width: 14),
           IconButton(
-            icon: Icon(Icons.download_outlined,
+            icon: Icon(
+              Icons.timer_outlined,
+              color: isTimerActive ? t.accent : t.textPrimary.withOpacity(0.75),
+              size: 22,
+            ),
+            onPressed: onTimerTap,
+          ),
+          const SizedBox(width: 14),
+          IconButton(
+            icon: Icon(Icons.equalizer,
                 color: t.textPrimary.withOpacity(0.75), size: 22),
-            onPressed: () async {
-              final ok = await confirmDownload(context, song.title);
-              if (!ok || !context.mounted) return;
-              try {
-                await downloadsProvider.downloadSong(song);
-              } catch (e) {
-                if (!context.mounted) return;
-                _showFailureSnackBar(context, 'Download failed. Please try again.');
-              }
-            },
+            onPressed: onEqualizerTap,
           ),
-        const SizedBox(width: 14),
-        IconButton(
-          icon: Icon(
-            Icons.timer_outlined,
-            color: isTimerActive ? t.accent : t.textPrimary.withOpacity(0.75),
-            size: 22,
+          const SizedBox(width: 8),
+          IconButton(
+            icon: Icon(Icons.queue_music,
+                color: t.textPrimary.withOpacity(0.75), size: 22),
+            tooltip: 'Playing list',
+            onPressed: () => HomeNav.showCurrentSongInList(song.id),
           ),
-          onPressed: onTimerTap,
-        ),
-        const SizedBox(width: 14),
-        IconButton(
-          icon: Icon(Icons.equalizer,
-              color: t.textPrimary.withOpacity(0.75), size: 22),
-          onPressed: onEqualizerTap,
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: Icon(Icons.queue_music,
-              color: t.textPrimary.withOpacity(0.75), size: 22),
-          tooltip: 'Playing list',
-          onPressed: () => HomeNav.showCurrentSongInList(song.id),
-        ),
-      ],
-    ),
+        ],
+      ),
     );
   }
 
@@ -279,7 +313,16 @@ class NowPlayingActions extends StatelessWidget {
           ),
           onPressed: () => _toggleFavorite(context, favoritesProvider, song),
         ),
-        _downloadButton(context, t, song, isDownloaded, isDownloading, downloadsProvider),
+        Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: MewatiBassButton(
+            size: 34,
+            active: context.watch<ThemeProvider>().mewatiBassOn,
+            onPressed: () => _toggleMewatiBass(context),
+          ),
+        ),
+        _downloadButton(
+            context, t, song, isDownloaded, isDownloading, downloadsProvider),
         IconButton(
           icon: Icon(Icons.drive_eta, color: muted, size: 24),
           tooltip: 'Drive Mode',
@@ -315,7 +358,8 @@ class NowPlayingActions extends StatelessWidget {
     if (isDownloaded) {
       return IconButton(
         icon: const Icon(Icons.check_circle, color: Color(0xFF4CD964), size: 24),
-        onPressed: () => _confirmRemoveDownload(context, downloadsProvider, song),
+        onPressed: () =>
+            _confirmRemoveDownload(context, downloadsProvider, song),
       );
     }
     if (isDownloading) {
@@ -349,7 +393,8 @@ class NowPlayingActions extends StatelessWidget {
       );
     }
     return IconButton(
-      icon: Icon(Icons.download_outlined, color: t.textPrimary.withOpacity(0.85), size: 24),
+      icon: Icon(Icons.download_outlined,
+          color: t.textPrimary.withOpacity(0.85), size: 24),
       onPressed: () async {
         final ok = await confirmDownload(context, song.title);
         if (!ok || !context.mounted) return;
@@ -393,8 +438,11 @@ class NowPlayingActions extends StatelessWidget {
                     color: isLiked ? const Color(0xFFFFD700) : t.textPrimary,
                   ),
                   title: Text(
-                    isLiked ? 'Unlike  ·  ${formatCount(likeCount)}' : 'Like  ·  ${formatCount(likeCount)}',
-                    style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
+                    isLiked
+                        ? 'Unlike  ·  ${formatCount(likeCount)}'
+                        : 'Like  ·  ${formatCount(likeCount)}',
+                    style: TextStyle(
+                        color: t.textPrimary, fontWeight: FontWeight.w600),
                   ),
                   onTap: () {
                     Navigator.pop(sheet);
@@ -402,10 +450,12 @@ class NowPlayingActions extends StatelessWidget {
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.shuffle, color: isShuffleOn ? t.accent : t.textPrimary),
+                  leading: Icon(Icons.shuffle,
+                      color: isShuffleOn ? t.accent : t.textPrimary),
                   title: Text(
                     isShuffleOn ? 'Shuffle on' : 'Shuffle',
-                    style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600),
+                    style: TextStyle(
+                        color: t.textPrimary, fontWeight: FontWeight.w600),
                   ),
                   onTap: () {
                     Navigator.pop(sheet);
@@ -413,8 +463,11 @@ class NowPlayingActions extends StatelessWidget {
                   },
                 ),
                 ListTile(
-                  leading: Icon(Icons.timer_outlined, color: isTimerActive ? t.accent : t.textPrimary),
-                  title: Text('Sleep timer', style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600)),
+                  leading: Icon(Icons.timer_outlined,
+                      color: isTimerActive ? t.accent : t.textPrimary),
+                  title: Text('Sleep timer',
+                      style: TextStyle(
+                          color: t.textPrimary, fontWeight: FontWeight.w600)),
                   onTap: () {
                     Navigator.pop(sheet);
                     onTimerTap();
@@ -422,7 +475,9 @@ class NowPlayingActions extends StatelessWidget {
                 ),
                 ListTile(
                   leading: Icon(Icons.equalizer, color: t.textPrimary),
-                  title: Text('Sound Effect', style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600)),
+                  title: Text('Sound Effect',
+                      style: TextStyle(
+                          color: t.textPrimary, fontWeight: FontWeight.w600)),
                   onTap: () {
                     Navigator.pop(sheet);
                     onEqualizerTap();
@@ -430,7 +485,9 @@ class NowPlayingActions extends StatelessWidget {
                 ),
                 ListTile(
                   leading: Icon(Icons.queue_music, color: t.textPrimary),
-                  title: Text('Playing list', style: TextStyle(color: t.textPrimary, fontWeight: FontWeight.w600)),
+                  title: Text('Playing list',
+                      style: TextStyle(
+                          color: t.textPrimary, fontWeight: FontWeight.w600)),
                   onTap: () {
                     Navigator.pop(sheet);
                     HomeNav.showCurrentSongInList(song.id);
