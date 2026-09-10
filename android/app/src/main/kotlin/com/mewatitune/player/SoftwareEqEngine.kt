@@ -17,13 +17,6 @@ import kotlin.math.sign
 import kotlin.math.sin
 import kotlin.math.tanh
 
-/**
- * 10-band + TruBass + M/S width + Haas + focus/definition.
- * Registered as the Media3 AudioProcessor engine (just_audio fork).
- * Never uses AudioEffect.EQUALIZER (Bluetooth A2DP skips that).
- *
- * If [init]/[apply] throws, Dart keeps playback dry.
- */
 class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, SoftwareEqAudioProcessor.Engine {
     private var channel: MethodChannel? = null
     private var bassChannel: EventChannel? = null
@@ -254,11 +247,6 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
         }
     }
 
-    /**
-     * After FX, scale the buffer so wet peak ≤ dry peak (and ≤ 0.89).
-     * This is what actually stops digital fatna — not the old per-sample
-     * tanh limiter, which was itself the crackle when shelves stacked.
-     */
     private fun applyHeadroom(
         pcm: ShortArray,
         frames: Int,
@@ -304,6 +292,7 @@ class SoftwareEqEngine : FlutterPlugin, MethodChannel.MethodCallHandler, Softwar
         val v = bassEnv
         mainHandler.post { bassSink?.success(v) }
     }
+
     private fun processMonoSplit(pcm: ShortArray, frames: Int) {
         val tb = truBass * 0.92
         val tt = truTreble * 0.92
