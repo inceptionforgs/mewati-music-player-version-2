@@ -7,6 +7,7 @@ import 'core/constants/app_dimensions.dart';
 import 'core/constants/themes/app_theme_id.dart';
 import 'core/widgets/connectivity_banner.dart';
 import 'core/widgets/debug_panel.dart';
+import 'core/widgets/app_haptics.dart';
 import 'core/widgets/mini_player/mini_player_bar.dart';
 import 'services/downloads_service.dart';
 import 'services/player_service.dart';
@@ -171,7 +172,8 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
                   final isSoundSettings =
                       routeName == RouteNames.soundSettings;
                   final isFeedback = routeName == RouteNames.feedback;
-                  final apple = themeProvider.theme.id == AppThemeId.silverChrome;
+                  final apple =
+                      themeProvider.theme.id == AppThemeId.silverChrome;
                   final showMiniPlayer = apple
                       ? !isNowPlaying &&
                           !isSplash &&
@@ -195,45 +197,49 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
                     themeProvider.theme.id,
                     routeName,
                   );
-                  final applePad = themeProvider.theme.id == AppThemeId.silverChrome
-                      ? MediaQuery.paddingOf(context).bottom
-                      : 0.0;
+                  final applePad =
+                      themeProvider.theme.id == AppThemeId.silverChrome
+                          ? MediaQuery.paddingOf(context).bottom
+                          : 0.0;
 
-                  return Stack(
-                    children: [
-                      Positioned.fill(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            bottom: showMiniPlayer
-                                ? miniPlayerHeight + tabLift + applePad
-                                : tabLift,
+                  return AppHaptics(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              bottom: showMiniPlayer
+                                  ? miniPlayerHeight + tabLift + applePad
+                                  : tabLift,
+                            ),
+                            child: child ?? const SizedBox.shrink(),
                           ),
-                          child: child ?? const SizedBox.shrink(),
                         ),
-                      ),
-                      if (showMiniPlayer)
+                        if (showMiniPlayer)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: tabLift,
+                            child: SafeArea(
+                              top: false,
+                              bottom: tabLift == 0 &&
+                                  themeProvider.theme.id !=
+                                      AppThemeId.silverChrome,
+                              child: const MiniPlayerBar(),
+                            ),
+                          ),
                         Positioned(
+                          top: 0,
                           left: 0,
                           right: 0,
-                          bottom: tabLift,
                           child: SafeArea(
-                            top: false,
-                            bottom: tabLift == 0 &&
-                                themeProvider.theme.id != AppThemeId.silverChrome,
-                            child: const MiniPlayerBar(),
+                            bottom: false,
+                            child: const ConnectivityBanner(),
                           ),
                         ),
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        child: SafeArea(
-                          bottom: false,
-                          child: const ConnectivityBanner(),
-                        ),
-                      ),
-                      if (kDebugMode) const DebugPanel(),
-                    ],
+                        if (kDebugMode) const DebugPanel(),
+                      ],
+                    ),
                   );
                 },
               );
