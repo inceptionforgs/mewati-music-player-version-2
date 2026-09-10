@@ -133,7 +133,10 @@ class _SearchScreenState extends State<SearchScreen> {
 
       if (!mounted || gen != _searchGeneration) return;
 
-      if (songErr != null && singerErr != null && songs.isEmpty && singers.isEmpty) {
+      if (songErr != null &&
+          singerErr != null &&
+          songs.isEmpty &&
+          singers.isEmpty) {
         setState(() {
           _songResults = [];
           _singerResults = [];
@@ -196,8 +199,7 @@ class _SearchScreenState extends State<SearchScreen> {
     final q = phrase?.trim() ?? '';
     if (q.isEmpty) return;
     _searchController.text = q;
-    _searchController.selection =
-        TextSelection.collapsed(offset: q.length);
+    _searchController.selection = TextSelection.collapsed(offset: q.length);
     await _performSearch(q);
   }
 
@@ -238,7 +240,8 @@ class _SearchScreenState extends State<SearchScreen> {
                             child: TextField(
                               controller: _searchController,
                               autofocus: true,
-                              style: TextStyle(color: t.textPrimary, fontSize: 14),
+                              style:
+                                  TextStyle(color: t.textPrimary, fontSize: 14),
                               decoration: InputDecoration(
                                 isDense: true,
                                 contentPadding:
@@ -310,10 +313,12 @@ class _SearchScreenState extends State<SearchScreen> {
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
                                   color: Colors.white.withOpacity(0.12),
-                                  border: Border.all(color: t.textPrimary, width: 2),
+                                  border: Border.all(
+                                      color: t.textPrimary, width: 2),
                                 ),
                                 alignment: Alignment.center,
-                                child: Icon(Icons.search, size: 26, color: t.textPrimary),
+                                child: Icon(Icons.search,
+                                    size: 26, color: t.textPrimary),
                               ),
                               const SizedBox(height: 15),
                               Text(
