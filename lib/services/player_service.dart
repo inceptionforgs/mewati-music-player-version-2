@@ -80,8 +80,7 @@ class PlayerService {
       }
     });
     _playingSubscription = _player.playingStream.listen(_onPlayingChanged);
-    _processingSubscription =
-        _player.processingStateStream.listen((state) {
+    _processingSubscription = _player.processingStateStream.listen((state) {
       if (state == ProcessingState.ready && _player.playing) {
         _playSegmentStart ??= DateTime.now();
         _armPlayCountTimer();
@@ -233,12 +232,14 @@ class PlayerService {
   }
 
   Future<void> _maybeExtendQueue() {
-    _extendChain = _extendChain.catchError((_) {}).then((_) => _extendForward());
+    _extendChain =
+        _extendChain.catchError((_) {}).then((_) => _extendForward());
     return _extendChain;
   }
 
   Future<void> _maybeExtendQueueBackward() {
-    _extendChain = _extendChain.catchError((_) {}).then((_) => _extendBackward());
+    _extendChain =
+        _extendChain.catchError((_) {}).then((_) => _extendBackward());
     return _extendChain;
   }
 
@@ -306,8 +307,7 @@ class PlayerService {
     _playAccumulated = Duration.zero;
     _countedThisSegment = false;
     _playCountTrackedSongId = song.id;
-    if (_player.playing &&
-        _player.processingState == ProcessingState.ready) {
+    if (_player.playing && _player.processingState == ProcessingState.ready) {
       _playSegmentStart = DateTime.now();
       _armPlayCountTimer();
     }
@@ -397,10 +397,10 @@ class PlayerService {
     await _player.seekToNext();
   }
 
-  Future<void> previous() async {
+  Future<void> previous({bool forceSkip = false}) async {
     if (_playlist.isEmpty) return;
     await _maybeExtendQueueBackward();
-    if (_player.position > const Duration(seconds: 3)) {
+    if (!forceSkip && _player.position > const Duration(seconds: 3)) {
       await _player.seek(Duration.zero);
       return;
     }
@@ -430,7 +430,8 @@ class PlayerService {
     await _player.setVolume(volume.clamp(0.0, 1.0));
   }
 
-  Future<void> fadeOut({Duration duration = const Duration(seconds: 30)}) async {
+  Future<void> fadeOut(
+      {Duration duration = const Duration(seconds: 30)}) async {
     cancelFadeOut();
     final token = ++_fadeToken;
     _originalVolume = _player.volume;
