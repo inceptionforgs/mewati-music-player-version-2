@@ -56,7 +56,8 @@ class PlayerProvider extends ChangeNotifier {
     _systemVolSubscription = SystemVolume.changes.listen((v) {
       volumeNotifier.value = v;
     });
-    _playerStateSubscription = _playerService.playerStateStream.listen((PlayerState state) {
+    _playerStateSubscription =
+        _playerService.playerStateStream.listen((PlayerState state) {
       _isPlaying = state.playing;
       if (state.processingState == ProcessingState.completed) {
         _isPlaying = false;
@@ -69,13 +70,15 @@ class PlayerProvider extends ChangeNotifier {
       positionNotifier.value = pos;
     });
 
-    _durationSubscription = _playerService.durationStream.listen((Duration? dur) {
+    _durationSubscription =
+        _playerService.durationStream.listen((Duration? dur) {
       _duration = dur;
       durationNotifier.value = dur ?? Duration.zero;
       notifyListeners();
     });
 
-    _currentIndexSubscription = _playerService.currentIndexStream.listen((int? index) {
+    _currentIndexSubscription =
+        _playerService.currentIndexStream.listen((int? index) {
       if (index == null) return;
       final playlist = _playerService.playlist;
       if (index >= 0 && index < playlist.length) {
@@ -88,7 +91,8 @@ class PlayerProvider extends ChangeNotifier {
     });
   }
 
-  Future<void> setPlaylist({required List<Song> songs, required int startIndex}) async {
+  Future<void> setPlaylist(
+      {required List<Song> songs, required int startIndex}) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
@@ -139,10 +143,10 @@ class PlayerProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> previous() async {
+  Future<void> previous({bool forceSkip = false}) async {
     _errorMessage = null;
     try {
-      await _playerService.previous();
+      await _playerService.previous(forceSkip: forceSkip);
       final song = _playerService.currentSong;
       if (song != null) {
         _currentSong = song;
