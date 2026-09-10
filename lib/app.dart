@@ -57,7 +57,7 @@ double _miniPlayerHeightFor(AppThemeId id) {
     case AppThemeId.cyberBlack:
       return 214.0;
     case AppThemeId.silverChrome:
-      return 64.0;
+      return 72.0;
     default:
       return AppDimensions.miniPlayerHeight;
   }
@@ -171,14 +171,23 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
                   final isSoundSettings =
                       routeName == RouteNames.soundSettings;
                   final isFeedback = routeName == RouteNames.feedback;
-                  final showMiniPlayer = hasSong &&
-                      !isNowPlaying &&
-                      !isSplash &&
-                      !isDriveMode &&
-                      !isSearch &&
-                      !isAdvanceSettings &&
-                      !isSoundSettings &&
-                      !isFeedback;
+                  final apple = themeProvider.theme.id == AppThemeId.silverChrome;
+                  final showMiniPlayer = apple
+                      ? !isNowPlaying &&
+                          !isSplash &&
+                          !isDriveMode &&
+                          !isSearch &&
+                          !isAdvanceSettings &&
+                          !isSoundSettings &&
+                          !isFeedback
+                      : hasSong &&
+                          !isNowPlaying &&
+                          !isSplash &&
+                          !isDriveMode &&
+                          !isSearch &&
+                          !isAdvanceSettings &&
+                          !isSoundSettings &&
+                          !isFeedback;
 
                   final miniPlayerHeight =
                       _miniPlayerHeightFor(themeProvider.theme.id);
