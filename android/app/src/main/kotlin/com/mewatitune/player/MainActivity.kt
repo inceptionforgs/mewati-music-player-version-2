@@ -1,5 +1,6 @@
 package com.mewatitune.player
 
+import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -27,15 +28,22 @@ class MainActivity : AudioServiceActivity() {
                     "max" -> result.success(
                         am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1),
                     )
+                    "locked" -> result.success(keyguardLocked())
                     "set" -> {
-                        val v = (call.arguments as? Number)?.toDouble() ?: 0.0
-                        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-                        am.setStreamVolume(
-                            AudioManager.STREAM_MUSIC,
-                            (v.coerceIn(0.0, 1.0) * max).toInt(),
-                            0,
-                        )
-                        result.success(systemVolume(am))
+                        // Lock screen owns STREAM_MUSIC. Writing it here fights the
+                        // hardware buttons and snaps volume (often to full).
+                        if (keyguardLocked()) {
+                            result.success(systemVolume(am))
+                        } else {
+                            val v = (call.arguments as? Number)?.toDouble() ?: 0.0
+                            val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+                            am.setStreamVolume(
+                                AudioManager.STREAM_MUSIC,
+                                (v.coerceIn(0.0, 1.0) * max).toInt(),
+                                0,
+                            )
+                            result.success(systemVolume(am))
+                        }
                     }
                     else -> result.notImplemented()
                 }
@@ -78,6 +86,11 @@ class MainActivity : AudioServiceActivity() {
                     receiver = null
                 }
             })
+    }
+
+    private fun keyguardLocked(): Boolean {
+        val km = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
+        return km.isKeyguardLocked
     }
 
     private fun systemVolume(am: AudioManager): Double {
