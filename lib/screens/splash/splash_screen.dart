@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../core/constants/app_strings.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/downloads_provider.dart';
 import '../../providers/theme_provider.dart';
@@ -153,16 +152,6 @@ class _SplashScreenState extends State<SplashScreen> {
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
                   color: t.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                AppStrings.appTagline,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: t.textSecondary,
-                  height: 1.35,
                 ),
               ),
               if (!_showRetry) ...[
