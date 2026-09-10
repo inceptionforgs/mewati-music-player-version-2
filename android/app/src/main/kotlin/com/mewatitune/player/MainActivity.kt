@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Build
 import com.ryanheise.audioservice.AudioServiceActivity
@@ -29,9 +30,8 @@ class MainActivity : AudioServiceActivity() {
                         am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1),
                     )
                     "locked" -> result.success(keyguardLocked())
+                    "headset" -> result.success(isHeadsetOrBluetooth(am))
                     "set" -> {
-                        // Lock screen owns STREAM_MUSIC. Writing it here fights the
-                        // hardware buttons and snaps volume (often to full).
                         if (keyguardLocked()) {
                             result.success(systemVolume(am))
                         } else {
@@ -91,6 +91,32 @@ class MainActivity : AudioServiceActivity() {
     private fun keyguardLocked(): Boolean {
         val km = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
         return km.isKeyguardLocked
+    }
+
+    private fun isHeadsetOrBluetooth(am: AudioManager): Boolean {
+        @Suppress("DEPRECATION")
+        if (am.isBluetoothA2dpOn || am.isWiredHeadsetOn || am.isBluetoothScoOn) {
+            return true
+        }
+        val devices = am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+        for (d in devices) {
+            when (d.type) {
+                AudioDeviceInfo.TYPE_WIRED_HEADSET,
+                AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+                AudioDeviceInfo.TYPE_USB_HEADSET,
+                AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
+                AudioDeviceInfo.TYPE_HEARING_AID -> return true
+            }
+            if (Build.VERSION.SDK_INT >= 31) {
+                if (d.type == AudioDeviceInfo.TYPE_BLE_HEADSET ||
+                    d.type == AudioDeviceInfo.TYPE_BLE_SPEAKER
+                ) {
+                    return true
+                }
+            }
+        }
+        return false
     }
 
     private fun systemVolume(am: AudioManager): Double {
