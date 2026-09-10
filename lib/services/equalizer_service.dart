@@ -48,7 +48,9 @@ class EqualizerService {
   double _vol = 1.0;
   double _intentVol = 1.0;
   bool _writingVol = false;
+  double _writeTarget = -1;
   double _volStep = 1.0 / 15.0;
+  bool _fg = true;
   StreamSubscription<double>? _volSub;
   Timer? _volDebounce;
   AppLifecycleListener? _life;
@@ -103,6 +105,27 @@ class EqualizerService {
     return 20.0 * math.log(lin) / math.ln10;
   }
 
+  /// Inverse of net = intent × (1 + boost(intent)). Lock-screen hardware
+  /// volume is the net; DSP makeup must follow intent without writing STREAM_MUSIC.
+  static double invertLoudnessNet(String id, double net) {
+    final n = net.clamp(0.0, 1.0);
+    if (loudnessBoostPctFor(id, 0.5) <= 0) return n;
+    var lo = 0.0;
+    var hi = 1.0;
+    for (var i = 0; i < 18; i++) {
+      final mid = (lo + hi) / 2;
+      final pred = (mid * (1.0 + loudnessBoostPctFor(id, mid))).clamp(0.0, 1.0);
+      if (pred < n) {
+        lo = mid;
+      } else {
+        hi = mid;
+      }
+    }
+    return ((lo + hi) / 2).clamp(0.0, 1.0);
+  }
+
+  bool get _mayWriteStream => _fg;
+
   Future<void> init() async {
     if (_isInitialized) return;
     if (!SoundPolicy.isSoftwareEngine) {
@@ -133,48 +156,12 @@ class EqualizerService {
     _volSub = SystemVolume.changes.listen((v) {
       if (_writingVol) {
         _vol = v;
+        if (_writeTarget >= 0 && (v - _writeTarget).abs() <= _volStep * 0.8) {
+          _writingVol = false;
+        }
         return;
       }
-      if (_streamBoostIds.contains(_activeId)) {
-        final pred = (_intentVol *
-                (1.0 + loudnessBoostPctFor(_activeId, _intentVol)))
-            .clamp(0.0, 1.0);
-        if ((v - pred).abs() <= _volStep * 1.6) {
-          _vol = v;
-          return;
-        }
-        if ((v - _vol).abs() > _volStep * 2.2) {
-          _writingVol = true;
-          unawaited(SystemVolume.set(pred).whenComplete(() {
-            Future<void>.delayed(const Duration(milliseconds: 200), () {
-              _writingVol = false;
-            });
-          }));
-          return;
-        }
-        final down = v + 0.008 < _vol;
-        final up = v > _vol + 0.008;
-        _vol = v;
-        if (up) {
-          _intentVol = (_intentVol + _volStep).clamp(0.0, 1.0);
-        } else if (down) {
-          _intentVol = (_intentVol - _volStep).clamp(0.0, 1.0);
-        } else {
-          return;
-        }
-      } else {
-        _vol = v;
-        _intentVol = v;
-      }
-      if (!_loudIds.contains(_activeId) &&
-          !_streamBoostIds.contains(_activeId) &&
-          !_bassScaleIds.contains(_activeId)) {
-        return;
-      }
-      _volDebounce?.cancel();
-      _volDebounce = Timer(const Duration(milliseconds: 80), () {
-        unawaited(_pushNative(EqPresets.byId(_activeId)));
-      });
+      unawaited(_onHardwareVolume(v));
     });
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -190,10 +177,62 @@ class EqualizerService {
     }
     _life?.dispose();
     _life = AppLifecycleListener(
+      onStateChange: (state) {
+        _fg = state == AppLifecycleState.resumed;
+      },
       onResume: () {
-        unawaited(_reassertEngine());
+        unawaited(_syncFromHardwareThenDsp());
       },
     );
+  }
+
+  Future<void> _onHardwareVolume(double v) async {
+    final locked = await SystemVolume.isLocked();
+    final prev = _vol;
+    _vol = v;
+
+    if (_streamBoostIds.contains(_activeId)) {
+      final stepish = (v - prev).abs() <= _volStep * 1.8;
+      if (_fg && !locked && stepish) {
+        if (v + 0.008 < prev) {
+          _intentVol = (_intentVol - _volStep).clamp(0.0, 1.0);
+        } else if (v > prev + 0.008) {
+          _intentVol = (_intentVol + _volStep).clamp(0.0, 1.0);
+        } else {
+          return;
+        }
+      } else {
+        _intentVol = invertLoudnessNet(_activeId, v);
+      }
+    } else {
+      _intentVol = v;
+    }
+
+    if (!_loudIds.contains(_activeId) &&
+        !_streamBoostIds.contains(_activeId) &&
+        !_bassScaleIds.contains(_activeId)) {
+      return;
+    }
+    final writeStream = _fg && !locked && _streamBoostIds.contains(_activeId);
+    _volDebounce?.cancel();
+    _volDebounce = Timer(const Duration(milliseconds: 80), () {
+      unawaited(_pushNative(
+        EqPresets.byId(_activeId),
+        writeStream: writeStream,
+      ));
+    });
+  }
+
+  Future<void> _syncFromHardwareThenDsp() async {
+    try {
+      _vol = await SystemVolume.get();
+      if (_streamBoostIds.contains(_activeId)) {
+        _intentVol = invertLoudnessNet(_activeId, _vol);
+      } else {
+        _intentVol = _vol;
+      }
+    } catch (_) {}
+    await _reassertEngine();
   }
 
   Future<void> _reassertEngine() async {
@@ -208,7 +247,7 @@ class EqualizerService {
     if (_activeId == 'custom') {
       await _applyPersistedCustomEq();
     } else {
-      await _pushNative(EqPresets.byId(_activeId));
+      await _pushNative(EqPresets.byId(_activeId), writeStream: false);
     }
   }
 
@@ -341,7 +380,7 @@ class EqualizerService {
     await prefs.setString(_legacyPresetKey, id);
   }
 
-  Future<void> _pushNative(EqPreset p) async {
+  Future<void> _pushNative(EqPreset p, {bool writeStream = true}) async {
     if (!_dspAlive) return;
     try {
       var gains = List<double>.from(
@@ -359,25 +398,19 @@ class EqualizerService {
       if (_loudIds.contains(p.id)) {
         makeup += loudnessMakeupDbFor(p.id, _intentVol);
       }
-      if (_streamBoostIds.contains(p.id)) {
+      if (writeStream && _mayWriteStream && _streamBoostIds.contains(p.id)) {
         final net = (_intentVol *
                 (1.0 + loudnessBoostPctFor(p.id, _intentVol)))
             .clamp(0.0, 1.0);
         if ((net - _vol).abs() > 0.02) {
           _writingVol = true;
+          _writeTarget = net;
           unawaited(SystemVolume.set(net).whenComplete(() {
-            Future<void>.delayed(const Duration(milliseconds: 200), () {
+            Future<void>.delayed(const Duration(milliseconds: 800), () {
               _writingVol = false;
             });
           }));
         }
-      } else if ((_intentVol - _vol).abs() > 0.02) {
-        _writingVol = true;
-        unawaited(SystemVolume.set(_intentVol).whenComplete(() {
-          Future<void>.delayed(const Duration(milliseconds: 120), () {
-            _writingVol = false;
-          });
-        }));
       }
       await _channel.invokeMethod('apply', {
         'gains': gains,
