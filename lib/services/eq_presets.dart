@@ -1,4 +1,3 @@
-/// Locked TM + 5-band custom. Keep in sync with SOUND_LOCK.json / web eq-presets.ts.
 class EqPreset {
   const EqPreset({
     required this.id,
@@ -103,6 +102,17 @@ class EqPresets {
     final c = g.length > 2 ? g[2] : 0.0;
     final d = g.length > 3 ? g[3] : 0.0;
     final e = g.length > 4 ? g[4] : 0.0;
-    return [a, a, (a + b) / 2, b, (b + c) / 2, c, (c + d) / 2, d, (d + e) / 2, e];
+    return [
+      a,
+      a,
+      (a + b) / 2,
+      b,
+      (b + c) / 2,
+      c,
+      (c + d) / 2,
+      d,
+      (d + e) / 2,
+      e
+    ];
   }
 }
