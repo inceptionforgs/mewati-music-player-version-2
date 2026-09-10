@@ -184,7 +184,7 @@ class _AppDrawerState extends State<AppDrawer> {
             const SizedBox(height: 18),
             _DrawerActionRow(
               icon: Icons.graphic_eq,
-              label: 'Sound Setting',
+              label: 'Sound Effect',
               t: t,
               radius: radius,
               onTap: () {
