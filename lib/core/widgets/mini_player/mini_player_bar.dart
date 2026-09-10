@@ -1,19 +1,3 @@
-// File: lib/core/widgets/mini_player/mini_player_bar.dart
-//
-// Dispatcher only. Reads PlayerProvider/ThemeProvider once, packs the
-// result into a MiniPlayerData, and hands off to the widget for the
-// active theme. Add a new theme by:
-//   1. Creating lib/core/widgets/mini_player/themes/mini_player_<n>.dart
-//      with a `class MiniPlayer<n> extends StatelessWidget` that takes
-//      `{required MiniPlayerData data}`.
-//   2. Importing it below and adding one `case` to the switch.
-// No existing theme file needs to change when you do this.
-//
-// UPDATED: added the Silver Chrome case + import — matches the
-// prototype's metallic mini player (thick bordered progress bar,
-// chrome-gradient circular controls). Default/Walkman Orange path is
-// unchanged.
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:just_audio/just_audio.dart';
@@ -34,9 +18,6 @@ class MiniPlayerBar extends StatelessWidget {
     final playerProvider = context.read<PlayerProvider>();
     final t = context.watch<ThemeProvider>().theme;
 
-    // Select only infrequently changing values to avoid rebuilds on every
-    // position tick (position/duration are read separately, inside each
-    // theme's slider, via PlayerProvider's ValueNotifiers).
     final song = context.select<PlayerProvider, dynamic>((p) => p.currentSong);
     final hasSong = song != null;
     final isPlaying = context.select<PlayerProvider, bool>((p) => p.isPlaying);
@@ -49,7 +30,7 @@ class MiniPlayerBar extends StatelessWidget {
     final totalQueueLength =
         context.select<PlayerProvider, int>((p) => p.totalQueueLength);
 
-    if (!hasSong) {
+    if (!hasSong && t.id != AppThemeId.silverChrome) {
       return const SizedBox.shrink();
     }
 
@@ -77,5 +58,3 @@ class MiniPlayerBar extends StatelessWidget {
     }
   }
 }
-
-
