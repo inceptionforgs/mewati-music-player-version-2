@@ -98,7 +98,8 @@ class _HomeScreenState extends State<HomeScreen> {
     if (HomeNav.tabIndex.value != index) {
       HomeNav.tabIndex.value = index;
     }
-    final apple = context.read<ThemeProvider>().theme.id == AppThemeId.silverChrome;
+    final apple =
+        context.read<ThemeProvider>().theme.id == AppThemeId.silverChrome;
     if (!_pageController.hasClients) return;
     if (apple) {
       _pageController.jumpToPage(index);
