@@ -172,6 +172,8 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
                   final isSoundSettings =
                       routeName == RouteNames.soundSettings;
                   final isFeedback = routeName == RouteNames.feedback;
+                  final isSingerOnboarding =
+                      routeName == RouteNames.singerOnboarding;
                   final apple =
                       themeProvider.theme.id == AppThemeId.silverChrome;
                   final showMiniPlayer = apple
@@ -181,7 +183,8 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
                           !isSearch &&
                           !isAdvanceSettings &&
                           !isSoundSettings &&
-                          !isFeedback
+                          !isFeedback &&
+                          !isSingerOnboarding
                       : hasSong &&
                           !isNowPlaying &&
                           !isSplash &&
@@ -189,7 +192,8 @@ class _MewatiTunePlayerAppState extends State<MewatiTunePlayerApp>
                           !isSearch &&
                           !isAdvanceSettings &&
                           !isSoundSettings &&
-                          !isFeedback;
+                          !isFeedback &&
+                          !isSingerOnboarding;
 
                   final miniPlayerHeight =
                       _miniPlayerHeightFor(themeProvider.theme.id);
