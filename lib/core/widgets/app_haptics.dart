@@ -12,16 +12,9 @@ class AppHaptics extends StatefulWidget {
 }
 
 class _AppHapticsState extends State<AppHaptics> {
-  Offset? _downPos;
-
   void _onDown(PointerDownEvent e) {
     if (e.kind != PointerDeviceKind.touch) return;
-    _downPos = e.position;
     HapticFeedback.selectionClick();
-  }
-
-  void _onUp(PointerUpEvent e) {
-    _downPos = null;
   }
 
   @override
@@ -29,7 +22,6 @@ class _AppHapticsState extends State<AppHaptics> {
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: _onDown,
-      onPointerUp: _onUp,
       child: widget.child,
     );
   }
