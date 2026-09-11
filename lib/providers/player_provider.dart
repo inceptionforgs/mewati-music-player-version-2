@@ -26,7 +26,7 @@ class PlayerProvider extends ChangeNotifier {
   StreamSubscription<Duration>? _positionSubscription;
   StreamSubscription<Duration?>? _durationSubscription;
   StreamSubscription<int?>? _currentIndexSubscription;
-  StreamSubscription<double>? _systemVolSubscription;
+  StreamSubscription<SystemVolumeEvent>? _systemVolSubscription;
 
   Song? get currentSong => _currentSong;
   bool get isPlaying => _isPlaying;
@@ -53,8 +53,8 @@ class PlayerProvider extends ChangeNotifier {
     SystemVolume.get().then((v) {
       volumeNotifier.value = v;
     });
-    _systemVolSubscription = SystemVolume.changes.listen((v) {
-      volumeNotifier.value = v;
+    _systemVolSubscription = SystemVolume.changes.listen((e) {
+      volumeNotifier.value = e.value;
     });
     _playerStateSubscription =
         _playerService.playerStateStream.listen((PlayerState state) {
