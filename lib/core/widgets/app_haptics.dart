@@ -12,25 +12,16 @@ class AppHaptics extends StatefulWidget {
 }
 
 class _AppHapticsState extends State<AppHaptics> {
-  int? _downMs;
   Offset? _downPos;
 
   void _onDown(PointerDownEvent e) {
     if (e.kind != PointerDeviceKind.touch) return;
-    _downMs = DateTime.now().millisecondsSinceEpoch;
     _downPos = e.position;
+    HapticFeedback.selectionClick();
   }
 
   void _onUp(PointerUpEvent e) {
-    final t = _downMs;
-    final p = _downPos;
-    _downMs = null;
     _downPos = null;
-    if (t == null || p == null) return;
-    final dt = DateTime.now().millisecondsSinceEpoch - t;
-    if (dt >= 320) return;
-    if ((e.position - p).distance > 22) return;
-    HapticFeedback.lightImpact();
   }
 
   @override
