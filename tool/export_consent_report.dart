@@ -108,7 +108,10 @@ Future<void> main(List<String> args) async {
         pw.Text('Device: ${row['consent_device_info'] ?? "-"}'),
         pw.SizedBox(height: 16),
         pw.Header(level: 1, child: pw.Text('Terms snapshot')),
-        pw.Text(row['terms_text_snapshot'] as String? ?? '', fontSize: 9),
+        pw.Text(
+          row['terms_text_snapshot'] as String? ?? '',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
         pw.SizedBox(height: 16),
         pw.Header(level: 1, child: pw.Text('ID document')),
         if (idImg != null) pw.Image(idImg, height: 280) else pw.Text('Image missing'),
