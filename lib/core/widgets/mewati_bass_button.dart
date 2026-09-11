@@ -24,7 +24,6 @@ class MewatiBassButton extends StatefulWidget {
 class _MewatiBassButtonState extends State<MewatiBassButton>
     with SingleTickerProviderStateMixin {
   static const _gold = Color(0xFFF3D59A);
-  static const _edge = Color(0xFFE8C56E);
 
   late final AnimationController _pulse;
   StreamSubscription<double>? _sub;
@@ -80,19 +79,16 @@ class _MewatiBassButtonState extends State<MewatiBassButton>
                 customBorder: const CircleBorder(),
                 onTap: widget.onPressed,
                 child: CustomPaint(
-                  painter: MewatiBassWavePainter(
-                      energy: widget.active ? _energy : 0),
+                  painter: _WooferPainter(
+                    energy: widget.active ? _energy : 0,
+                  ),
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: _edge.withOpacity(0.55 + 0.35 * _energy),
-                        width: 1.1,
-                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: _gold.withOpacity(0.22 + 0.45 * _energy),
-                          blurRadius: 8 + 10 * _energy,
+                          color: _gold.withOpacity(0.18 + 0.40 * _energy),
+                          blurRadius: 6 + 8 * _energy,
                         ),
                       ],
                     ),
@@ -107,55 +103,61 @@ class _MewatiBassButtonState extends State<MewatiBassButton>
   }
 }
 
-class MewatiBassWavePainter extends CustomPainter {
+class _WooferPainter extends CustomPainter {
   final double energy;
 
-  MewatiBassWavePainter({required this.energy});
+  _WooferPainter({required this.energy});
 
   @override
   void paint(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - 1.5;
-    final pulse = energy.clamp(0.0, 1.0);
+    final r = math.min(size.width, size.height) / 2 - 1.2;
+    final p = energy.clamp(0.0, 1.0);
+    const gold = Color(0xFFF3D59A);
 
-    final fill = Paint()..color = const Color(0xFF1A120C).withOpacity(0.92);
-    canvas.drawCircle(c, radius, fill);
+    canvas.drawCircle(c, r, Paint()..color = const Color(0xFF16100C));
+
+    final rim = Paint()
+      ..color = gold.withOpacity(0.85)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6;
+    canvas.drawCircle(c, r * 0.92, rim);
 
     final ring = Paint()
-      ..color = const Color(0xFFF3D59A).withOpacity(0.35 + 0.25 * pulse)
+      ..color = gold.withOpacity(0.28 + 0.35 * p)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2;
-    canvas.drawCircle(c, radius * 0.42, ring);
-    canvas.drawCircle(c, radius * (0.62 + 0.04 * pulse), ring);
+      ..strokeWidth = 1.15;
+    canvas.drawCircle(c, r * (0.74 + 0.02 * p), ring);
+    canvas.drawCircle(c, r * (0.56 + 0.03 * p), ring);
+    canvas.drawCircle(c, r * (0.38 + 0.03 * p), ring);
 
-    final core = Paint()
-      ..color = const Color(0xFFF3D59A).withOpacity(0.55 + 0.45 * pulse);
-    canvas.drawCircle(c, radius * (0.12 + 0.05 * pulse), core);
+    canvas.drawCircle(
+      c,
+      r * (0.16 + 0.06 * p),
+      Paint()..color = gold.withOpacity(0.55 + 0.40 * p),
+    );
 
-    final bar = Paint()
-      ..color = const Color(0xFFF3D59A)
-      ..strokeWidth = 1.5
-      ..strokeCap = StrokeCap.round;
-
-    const ticks = 28;
-    for (var i = 0; i < ticks; i++) {
-      final a = (i / ticks) * math.pi * 2;
-      final wave = (math.sin(a * 3) + 1) / 2;
-      final len = pulse < 0.03 ? 0.0 : radius * (0.10 + 0.28 * wave * pulse);
-      final inner = radius * 0.70;
-      final p1 = Offset(
-        c.dx + math.cos(a) * inner,
-        c.dy + math.sin(a) * inner,
-      );
-      final p2 = Offset(
-        c.dx + math.cos(a) * (inner + len),
-        c.dy + math.sin(a) * (inner + len),
-      );
-      canvas.drawLine(p1, p2, bar);
+    if (p > 0.04) {
+      final wave = Paint()
+        ..color = gold.withOpacity(0.25 + 0.45 * p)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..strokeCap = StrokeCap.round;
+      for (final dir in [-1.0, 1.0]) {
+        final reach = r * (0.18 + 0.22 * p);
+        final start = Offset(c.dx + dir * r * 0.98, c.dy);
+        canvas.drawArc(
+          Rect.fromCircle(center: start, radius: reach),
+          dir < 0 ? -0.7 : 3.14159 - 0.7,
+          1.4,
+          false,
+          wave,
+        );
+      }
     }
   }
 
   @override
-  bool shouldRepaint(covariant MewatiBassWavePainter oldDelegate) =>
+  bool shouldRepaint(covariant _WooferPainter oldDelegate) =>
       oldDelegate.energy != energy;
 }
