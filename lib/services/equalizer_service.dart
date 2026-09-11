@@ -46,6 +46,9 @@ class EqualizerService {
   Timer? _volDebounce;
   AppLifecycleListener? _life;
 
+  /// Hardware volume just before Bass/Beats first raised STREAM_MUSIC.
+  double? _volumeBeforeBoost;
+
   static const _loudIds = {'mewati-bass'};
   static const _streamBoostIds = {'mewati-bass', 'beats'};
   static const _bassScaleIds = <String>{};
@@ -151,6 +154,9 @@ class EqualizerService {
       _intentVol = _streamBoostIds.contains(saved)
           ? invertLoudnessNet(saved, _vol)
           : _vol;
+      if (_streamBoostIds.contains(saved)) {
+        _volumeBeforeBoost = _intentVol;
+      }
     } catch (_) {
       _vol = 1.0;
       _intentVol = 1.0;
@@ -199,6 +205,7 @@ class EqualizerService {
       } else {
         _intentVol = invertLoudnessNet(_activeId, v);
       }
+      _volumeBeforeBoost = _intentVol;
     } else {
       _intentVol = v;
     }
@@ -223,6 +230,7 @@ class EqualizerService {
       _vol = await SystemVolume.get();
       if (_streamBoostIds.contains(_activeId)) {
         _intentVol = invertLoudnessNet(_activeId, _vol);
+        _volumeBeforeBoost = _intentVol;
       } else {
         _intentVol = _vol;
       }
@@ -249,17 +257,48 @@ class EqualizerService {
     }
   }
 
+  void _enterBoostFloor() {
+    _volumeBeforeBoost ??= _intentVol;
+  }
+
+  Future<void> _leaveBoostFloor({required bool writeStream}) async {
+    final saved = _volumeBeforeBoost;
+    if (saved == null) return;
+    _volumeBeforeBoost = null;
+    _intentVol = saved;
+    if (!writeStream || !_mayWriteStream) return;
+    if ((saved - _vol).abs() <= 0.005) return;
+    _writingVol = true;
+    _writeTarget = saved;
+    unawaited(SystemVolume.set(saved).whenComplete(() {
+      Future<void>.delayed(const Duration(milliseconds: 800), () {
+        _writingVol = false;
+      });
+    }));
+  }
+
   Future<void> applyPreset(String preset) async {
     try {
       if (!_isInitialized) await init();
       if (preset == 'custom') {
+        final leavingBoost = _streamBoostIds.contains(_activeId);
         _activeId = 'custom';
+        if (leavingBoost) {
+          await _leaveBoostFloor(writeStream: true);
+        }
         await _applyPersistedCustomEq();
         await _savePresetId('custom');
         return;
       }
       final p = EqPresets.byId(preset);
+      final wasBoost = _streamBoostIds.contains(_activeId);
+      final nowBoost = _streamBoostIds.contains(p.id);
       _activeId = p.id;
+      if (nowBoost) {
+        _enterBoostFloor();
+      } else if (wasBoost) {
+        await _leaveBoostFloor(writeStream: true);
+      }
       await _pushNative(p);
       await _savePresetId(p.id);
     } catch (e) {
@@ -409,6 +448,9 @@ class EqualizerService {
       }
       if (writeStream && _mayWriteStream) {
         final boost = _streamBoostIds.contains(p.id);
+        if (boost) {
+          _enterBoostFloor();
+        }
         var target = boost
             ? (_intentVol * (1.0 + loudnessBoostPctFor(p.id, _intentVol)))
                 .clamp(0.0, 1.0)
