@@ -16,6 +16,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : AudioServiceActivity() {
     private var volumeEvents: EventChannel.EventSink? = null
     private var receiver: BroadcastReceiver? = null
+    private var lastAppWriteIndex: Int = -1
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -35,13 +36,21 @@ class MainActivity : AudioServiceActivity() {
                         if (keyguardLocked()) {
                             result.success(systemVolume(am))
                         } else {
-                            val v = (call.arguments as? Number)?.toDouble() ?: 0.0
+                            val args = call.arguments
+                            var value = 0.0
+                            var silent = true
+                            when (args) {
+                                is Number -> value = args.toDouble()
+                                is Map<*, *> -> {
+                                    value = (args["value"] as? Number)?.toDouble() ?: 0.0
+                                    silent = args["silent"] as? Boolean ?: true
+                                }
+                            }
                             val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-                            am.setStreamVolume(
-                                AudioManager.STREAM_MUSIC,
-                                (v.coerceIn(0.0, 1.0) * max).toInt(),
-                                AudioManager.FLAG_SHOW_UI,
-                            )
+                            val idx = (value.coerceIn(0.0, 1.0) * max).toInt()
+                            lastAppWriteIndex = idx
+                            val flags = if (silent) 0 else AudioManager.FLAG_SHOW_UI
+                            am.setStreamVolume(AudioManager.STREAM_MUSIC, idx, flags)
                             result.success(systemVolume(am))
                         }
                     }
@@ -53,16 +62,26 @@ class MainActivity : AudioServiceActivity() {
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     volumeEvents = events
-                    events?.success(systemVolume(am))
                     if (receiver == null) {
                         receiver = object : BroadcastReceiver() {
                             override fun onReceive(context: Context?, intent: Intent?) {
-                                val type = intent?.getIntExtra(
+                                if (intent?.action != "android.media.VOLUME_CHANGED_ACTION") return
+                                val type = intent.getIntExtra(
                                     "android.media.EXTRA_VOLUME_STREAM_TYPE",
                                     -1,
-                                ) ?: -1
+                                )
                                 if (type != -1 && type != AudioManager.STREAM_MUSIC) return
-                                volumeEvents?.success(systemVolume(am))
+                                val cur = am.getStreamVolume(AudioManager.STREAM_MUSIC)
+                                val fromApp = lastAppWriteIndex >= 0 && cur == lastAppWriteIndex
+                                if (fromApp) {
+                                    lastAppWriteIndex = -1
+                                }
+                                volumeEvents?.success(
+                                    hashMapOf(
+                                        "value" to systemVolume(am),
+                                        "fromApp" to fromApp,
+                                    ),
+                                )
                             }
                         }
                         val filter = IntentFilter("android.media.VOLUME_CHANGED_ACTION")
