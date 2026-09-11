@@ -39,7 +39,6 @@ class EqualizerService {
   double _vol = 1.0;
   double _intentVol = 1.0;
   bool _writingVol = false;
-  double _writeTarget = -1;
   double _volStep = 1.0 / 15.0;
   bool _fg = true;
   StreamSubscription<SystemVolumeEvent>? _volSub;
@@ -271,7 +270,6 @@ class EqualizerService {
     if (!writeStream || !_mayWriteStream) return;
     if ((saved - _vol).abs() <= 0.005) return;
     _writingVol = true;
-    _writeTarget = saved;
     unawaited(SystemVolume.set(saved).whenComplete(() {
       Future<void>.delayed(const Duration(milliseconds: 800), () {
         _writingVol = false;
@@ -462,7 +460,6 @@ class EqualizerService {
         }
         if ((target - _vol).abs() > 0.005) {
           _writingVol = true;
-          _writeTarget = target;
           unawaited(SystemVolume.set(target).whenComplete(() {
             Future<void>.delayed(const Duration(milliseconds: 800), () {
               _writingVol = false;
