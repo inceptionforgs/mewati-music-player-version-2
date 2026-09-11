@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/foundation.dart';
 
 import '../core/utils/error_handler.dart';
@@ -68,6 +66,7 @@ class SingerOnboardingProvider extends ChangeNotifier {
   void setTermsAccepted(bool v) {
     if (!termsReadToEnd) return;
     termsAccepted = v;
+    notifyListeners();
   }
 
   void next() {
