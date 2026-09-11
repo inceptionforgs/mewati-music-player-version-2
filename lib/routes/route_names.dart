@@ -8,4 +8,5 @@ class RouteNames {
   static const String soundSettings = '/sound-settings';
   static const String driveMode = '/drive-mode';
   static const String search = '/search';
+  static const String singerOnboarding = '/singer-onboarding';
 }
