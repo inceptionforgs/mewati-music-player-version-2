@@ -42,7 +42,7 @@ class EqualizerService {
   double _writeTarget = -1;
   double _volStep = 1.0 / 15.0;
   bool _fg = true;
-  StreamSubscription<double>? _volSub;
+  StreamSubscription<SystemVolumeEvent>? _volSub;
   Timer? _volDebounce;
   AppLifecycleListener? _life;
 
@@ -161,15 +161,17 @@ class EqualizerService {
       _vol = 1.0;
       _intentVol = 1.0;
     }
-    _volSub = SystemVolume.changes.listen((v) {
-      if (_writingVol) {
-        _vol = v;
-        if (_writeTarget >= 0 && (v - _writeTarget).abs() <= _volStep * 0.8) {
-          _writingVol = false;
-        }
+    _volSub = SystemVolume.changes.listen((e) {
+      if (e.fromApp) {
+        _vol = e.value;
+        _writingVol = false;
         return;
       }
-      unawaited(_onHardwareVolume(v));
+      if (_writingVol) {
+        _vol = e.value;
+        return;
+      }
+      unawaited(_onHardwareVolume(e.value));
     });
     try {
       await applyPreset(saved);
