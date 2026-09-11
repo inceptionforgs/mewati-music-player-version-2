@@ -1,4 +1,3 @@
-// FILE: lib/providers/likes_provider.dart
 import 'package:flutter/foundation.dart';
 import '../core/utils/error_handler.dart';
 import '../models/song.dart';
@@ -66,10 +65,8 @@ class LikesProvider extends ChangeNotifier {
       _likedStatusChecked.addAll(missingLiked);
     } catch (e) {
       _errorMessage = ErrorHandler.getMessage(e);
-      // Still mark as checked so a persistent failure doesn't retry forever
-      // on every rebuild; loadLikesData can be called again explicitly
-      // (e.g. pull-to-refresh) to retry.
-      _likedStatusChecked.addAll(missingLiked);
+      // Do not mark as checked on failure — the next loadLikesData
+      // (new page, tab revisit) retries instead of locking the session.
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -136,4 +133,3 @@ class LikesProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
-
