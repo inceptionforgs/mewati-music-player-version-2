@@ -10,6 +10,7 @@ import '../screens/settings/advance_settings_screen.dart';
 import '../screens/settings/sound_settings_screen.dart';
 import '../screens/drive_mode/drive_mode_screen.dart';
 import '../screens/search/search_screen.dart';
+import '../screens/singer_onboarding/singer_onboarding_screen.dart';
 import 'route_names.dart';
 
 class AppRouter {
@@ -74,6 +75,11 @@ class AppRouter {
       case RouteNames.search:
         return MaterialPageRoute(
           builder: (_) => const SearchScreen(),
+          settings: settings,
+        );
+      case RouteNames.singerOnboarding:
+        return MaterialPageRoute(
+          builder: (_) => const SingerOnboardingScreen(),
           settings: settings,
         );
       default:
