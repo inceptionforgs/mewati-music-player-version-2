@@ -1,5 +1,3 @@
-// File: lib/main.dart
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -19,18 +17,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   final downloadsProvider = DownloadsProvider();
-
-  try {
-    await _initializeApp(downloadsProvider);
-  } catch (e) {
-    // FIXED: Supabase init failure (no internet, bad config, timeout)
-    // used to crash before runApp() was ever called — blank screen,
-    // no retry. Now we boot a minimal error/retry app instead of
-    // letting the exception escape main() uncaught.
-    runApp(_StartupErrorApp(error: e.toString()));
-    return;
-  }
-
   final authProvider = AuthProvider();
 
   runApp(
@@ -39,44 +25,8 @@ Future<void> main() async {
       downloadsProvider: downloadsProvider,
     ),
   );
-}
 
-class _StartupErrorApp extends StatelessWidget {
-  final String error;
-
-  const _StartupErrorApp({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        backgroundColor: const Color(0xFF0A0A0A),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.wifi_off, color: Colors.white70, size: 48),
-                const SizedBox(height: 16),
-                const Text(
-                  'Could not connect. Please check your internet and try again.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white, fontSize: 16),
-                ),
-                const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () => main(),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  unawaited(_initializeApp(downloadsProvider));
 }
 
 Future<void> _initializeApp(
@@ -89,120 +39,83 @@ Future<void> _initializeApp(
       debugPrint('Optional .env not loaded: $e');
     }
 
-    try {
-      await JustAudioBackground.init(
-        androidNotificationChannelId:
-            'com.mewatitune.player.channel.audio',
-        androidNotificationChannelName:
-            'Mewati Music Player Playback',
-        androidNotificationOngoing: true,
-      ).timeout(
-        const Duration(seconds: 8),
-      );
-    } catch (e) {
-      debugPrint(
-        'JustAudioBackground.init failed/timed out: $e',
-      );
-    }
+    await Future.wait<void>([
+      _initJustAudioBackground(),
+      _initSupabase(),
+      _initLocalCache(),
+      _initDownloads(downloadsProvider),
+      _initSentry(),
+    ]);
 
-    try {
-      await SupabaseService().initialize().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException(
-            'Supabase initialization timed out.',
-          );
-        },
-      );
-
-      DebugLogService().info(
-        'Supabase initialized successfully',
-      );
-    } catch (e) {
-      debugPrint(
-        'Supabase init failed/timed out: $e',
-      );
-
-      DebugLogService().error(
-        'Supabase initialization failed: $e',
-      );
-      // Stay up with local cache / downloads. Do not rethrow — that
-      // skipped LocalCacheService and showed a dead retry screen on
-      // the exact offline case the cache exists for.
-    }
-
-    try {
-      await LocalCacheService()
-          .initialize()
-          .timeout(
-            const Duration(seconds: 5),
-          );
-
-      DebugLogService().info(
-        'Local cache initialized successfully',
-      );
-    } catch (e) {
-      debugPrint(
-        'LocalCacheService.initialize failed/timed out: $e',
-      );
-
-      DebugLogService().error(
-        'Local cache initialization failed: $e',
-      );
-    }
-
-    try {
-      await downloadsProvider.initialize().timeout(
-        const Duration(seconds: 5),
-      );
-
-      DebugLogService().info(
-        'DownloadsProvider initialized successfully',
-      );
-    } catch (e) {
-      debugPrint(
-        'DownloadsProvider.initialize failed/timed out: $e',
-      );
-
-      DebugLogService().error(
-        'DownloadsProvider initialization failed: $e',
-      );
-    }
-
-    if (Environment.sentryDsn.isNotEmpty) {
-      try {
-        await SentryFlutter.init(
-          (options) {
-            options.dsn = Environment.sentryDsn;
-            options.tracesSampleRate =
-                Environment.sentryTracesSampleRate;
-          },
-        ).timeout(
-          const Duration(seconds: 5),
-        );
-
-        DebugLogService().info(
-          'Sentry initialized successfully',
-        );
-      } catch (e) {
-        debugPrint(
-          'SentryFlutter.init failed/timed out: $e',
-        );
-
-        DebugLogService().error(
-          'Sentry initialization failed: $e',
-        );
-      }
-    }
-
-    DebugLogService().info(
-      'App initialized successfully',
-    );
+    DebugLogService().info('App initialized successfully');
   } catch (e) {
-    DebugLogService().error(
-      'App initialization failed: $e',
-    );
+    DebugLogService().error('App initialization failed: $e');
+  }
+}
 
-    rethrow;
+Future<void> _initJustAudioBackground() async {
+  try {
+    await JustAudioBackground.init(
+      androidNotificationChannelId: 'com.mewatitune.player.channel.audio',
+      androidNotificationChannelName: 'Mewati Music Player Playback',
+      androidNotificationOngoing: true,
+    ).timeout(const Duration(seconds: 8));
+  } catch (e) {
+    debugPrint('JustAudioBackground.init failed/timed out: $e');
+  }
+}
+
+Future<void> _initSupabase() async {
+  try {
+    await SupabaseService().initialize().timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        throw TimeoutException('Supabase initialization timed out.');
+      },
+    );
+    DebugLogService().info('Supabase initialized successfully');
+  } catch (e) {
+    debugPrint('Supabase init failed/timed out: $e');
+    DebugLogService().error('Supabase initialization failed: $e');
+  }
+}
+
+Future<void> _initLocalCache() async {
+  try {
+    await LocalCacheService().initialize().timeout(
+      const Duration(seconds: 5),
+    );
+    DebugLogService().info('Local cache initialized successfully');
+  } catch (e) {
+    debugPrint('LocalCacheService.initialize failed/timed out: $e');
+    DebugLogService().error('Local cache initialization failed: $e');
+  }
+}
+
+Future<void> _initDownloads(DownloadsProvider downloadsProvider) async {
+  try {
+    await downloadsProvider.initialize().timeout(
+      const Duration(seconds: 5),
+    );
+    DebugLogService().info('DownloadsProvider initialized successfully');
+  } catch (e) {
+    debugPrint('DownloadsProvider.initialize failed/timed out: $e');
+    DebugLogService().error('DownloadsProvider initialization failed: $e');
+  }
+}
+
+Future<void> _initSentry() async {
+  if (Environment.sentryDsn.isEmpty) return;
+  try {
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = Environment.sentryDsn;
+        options.tracesSampleRate = Environment.sentryTracesSampleRate;
+      },
+    ).timeout(const Duration(seconds: 5));
+    DebugLogService().info('Sentry initialized successfully');
+  } catch (e) {
+    debugPrint('SentryFlutter.init failed/timed out: $e');
+    DebugLogService().error('Sentry initialization failed: $e');
   }
 }
