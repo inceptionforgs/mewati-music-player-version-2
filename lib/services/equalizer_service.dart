@@ -132,11 +132,25 @@ class EqualizerService {
     }
     _isInitialized = true;
     _volSub?.cancel();
+    var saved = defaultPresetId;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      saved = prefs.getString(presetPrefsKey) ??
+          prefs.getString(_legacyPresetKey) ??
+          defaultPresetId;
+      if (prefs.getString(presetPrefsKey) == null) {
+        await prefs.setString(presetPrefsKey, saved);
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('EqualizerService prefs dry: $e');
+    }
     try {
       _vol = await SystemVolume.get();
-      _intentVol = _vol;
       final steps = await SystemVolume.maxSteps();
       _volStep = 1.0 / steps;
+      _intentVol = _streamBoostIds.contains(saved)
+          ? invertLoudnessNet(saved, _vol)
+          : _vol;
     } catch (_) {
       _vol = 1.0;
       _intentVol = 1.0;
@@ -152,13 +166,6 @@ class EqualizerService {
       unawaited(_onHardwareVolume(v));
     });
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString(presetPrefsKey) ??
-          prefs.getString(_legacyPresetKey) ??
-          defaultPresetId;
-      if (prefs.getString(presetPrefsKey) == null) {
-        await prefs.setString(presetPrefsKey, saved);
-      }
       await applyPreset(saved);
     } catch (e) {
       if (kDebugMode) debugPrint('EqualizerService apply saved dry: $e');
@@ -235,7 +242,10 @@ class EqualizerService {
     if (_activeId == 'custom') {
       await _applyPersistedCustomEq();
     } else {
-      await _pushNative(EqPresets.byId(_activeId), writeStream: false);
+      await _pushNative(
+        EqPresets.byId(_activeId),
+        writeStream: _streamBoostIds.contains(_activeId),
+      );
     }
   }
 
@@ -397,14 +407,19 @@ class EqualizerService {
       if (_loudIds.contains(p.id)) {
         makeup += loudnessMakeupDbFor(p.id, _intentVol);
       }
-      if (writeStream && _mayWriteStream && _streamBoostIds.contains(p.id)) {
-        final net = (_intentVol *
-                (1.0 + loudnessBoostPctFor(p.id, _intentVol)))
-            .clamp(0.0, 1.0);
-        if ((net - _vol).abs() > 0.02) {
+      if (writeStream && _mayWriteStream) {
+        final boost = _streamBoostIds.contains(p.id);
+        var target = boost
+            ? (_intentVol * (1.0 + loudnessBoostPctFor(p.id, _intentVol)))
+                .clamp(0.0, 1.0)
+            : _intentVol;
+        if (boost && target < 1.0 && target <= _vol + _volStep * 0.35) {
+          target = (_vol + _volStep).clamp(0.0, 1.0);
+        }
+        if ((target - _vol).abs() > 0.005) {
           _writingVol = true;
-          _writeTarget = net;
-          unawaited(SystemVolume.set(net).whenComplete(() {
+          _writeTarget = target;
+          unawaited(SystemVolume.set(target).whenComplete(() {
             Future<void>.delayed(const Duration(milliseconds: 800), () {
               _writingVol = false;
             });
