@@ -1,4 +1,5 @@
-// FILE: lib/providers/favorites_provider.dart
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../core/utils/error_handler.dart';
 import '../models/song.dart';
@@ -14,6 +15,7 @@ class FavoritesProvider extends ChangeNotifier {
   final Set<String> _favoriteSongIds = {};
 
   bool _isLoading = false;
+  bool _reloadQueued = false;
   String? _errorMessage;
 
   // Separate generations: one for load operations, one for toggle operations.
@@ -30,10 +32,13 @@ class FavoritesProvider extends ChangeNotifier {
   bool isFavoriteSync(String songId) => _favoriteSongIds.contains(songId);
 
   Future<void> loadFavorites() async {
-    // Prevent duplicate concurrent loads (P1#10).
-    if (_isLoading) return;
+    if (_isLoading) {
+      _reloadQueued = true;
+      return;
+    }
 
     final int myGeneration = ++_loadGeneration;
+    _reloadQueued = false;
 
     _isLoading = true;
     _errorMessage = null;
@@ -42,7 +47,6 @@ class FavoritesProvider extends ChangeNotifier {
     try {
       final songs = await _favoritesService.fetchFavoriteSongs();
 
-      // Only apply results if no newer load started.
       if (myGeneration != _loadGeneration) return;
 
       _favoriteSongs = songs;
@@ -54,11 +58,14 @@ class FavoritesProvider extends ChangeNotifier {
       _favoriteSongs = [];
       _errorMessage = ErrorHandler.getMessage(e);
     } finally {
-      // Always clear loading flag for the current load, even if results were ignored.
       if (myGeneration == _loadGeneration) {
         _isLoading = false;
       }
       notifyListeners();
+      if (myGeneration == _loadGeneration && _reloadQueued) {
+        _reloadQueued = false;
+        unawaited(loadFavorites());
+      }
     }
   }
 
@@ -117,4 +124,3 @@ class FavoritesProvider extends ChangeNotifier {
     notifyListeners();
   }
 }
-
