@@ -12,6 +12,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/utils/home_nav.dart';
 import '../../../core/widgets/download_confirm.dart';
 import '../../../core/widgets/mewati_bass_button.dart';
+import '../../../core/widgets/mewati_bass_toast.dart';
 import '../../../routes/route_names.dart';
 import '../../../services/equalizer_service.dart';
 import '../../../services/eq_presets.dart';
@@ -32,7 +33,9 @@ class NowPlayingActions extends StatelessWidget {
     final theme = context.read<ThemeProvider>();
     final turningOn = !theme.mewatiBassOn;
     await theme.toggleMewatiBass();
-    if (!context.mounted || !turningOn) return;
+    if (!context.mounted) return;
+    showMewatiBassToast(context, on: turningOn);
+    if (!turningOn) return;
     if (await EqualizerService().shouldHintHeadphones('mewati-bass')) {
       if (!context.mounted) return;
       final messenger = ScaffoldMessenger.of(context);
