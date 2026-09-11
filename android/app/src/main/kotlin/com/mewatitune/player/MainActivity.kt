@@ -40,7 +40,7 @@ class MainActivity : AudioServiceActivity() {
                             am.setStreamVolume(
                                 AudioManager.STREAM_MUSIC,
                                 (v.coerceIn(0.0, 1.0) * max).toInt(),
-                                0,
+                                AudioManager.FLAG_SHOW_UI,
                             )
                             result.success(systemVolume(am))
                         }
@@ -90,7 +90,7 @@ class MainActivity : AudioServiceActivity() {
 
     private fun keyguardLocked(): Boolean {
         val km = getSystemService(KEYGUARD_SERVICE) as KeyguardManager
-        return km.isKeyguardLocked
+        return km.isKeyguardLocked()
     }
 
     private fun isHeadsetOrBluetooth(am: AudioManager): Boolean {
