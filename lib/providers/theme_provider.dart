@@ -46,8 +46,23 @@ class ThemeProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
 
-      _themeId = AppThemes.defaultThemeId;
-      await prefs.setString(_themeIdKey, _themeId.toString());
+      final savedId = prefs.getString(_themeIdKey);
+      if (savedId != null) {
+        _themeId = AppThemeId.values.firstWhere(
+          (v) => v.toString() == savedId,
+          orElse: () => AppThemes.defaultThemeId,
+        );
+        if (_themeId == AppThemeId.custom) {
+          final savedColor = prefs.getInt(_customColorKey);
+          if (savedColor != null) {
+            _customColor = Color(savedColor);
+          }
+          _customShade = prefs.getDouble(_customShadeKey) ?? _customShade;
+        }
+      } else {
+        _themeId = AppThemes.defaultThemeId;
+        await prefs.setString(_themeIdKey, _themeId.toString());
+      }
 
       final eq = prefs.getString(EqualizerService.presetPrefsKey) ??
           prefs.getString('eq_preset');
