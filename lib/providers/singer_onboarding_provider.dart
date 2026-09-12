@@ -26,8 +26,8 @@ class SingerOnboardingProvider extends ChangeNotifier {
     return n.isNotEmpty && RegExp(r'^\d{10}$').hasMatch(m);
   }
 
-  bool get canGoStep3 => idJpeg != null && idJpeg!.isNotEmpty;
-  bool get canGoStep4 => selfieJpeg != null && selfieJpeg!.isNotEmpty;
+  bool get canGoStep3 => selfieJpeg != null && selfieJpeg!.isNotEmpty;
+  bool get canGoStep4 => idJpeg != null && idJpeg!.isNotEmpty;
   bool get canSubmit =>
       canGoStep2 &&
       canGoStep3 &&
@@ -52,8 +52,18 @@ class SingerOnboardingProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearIdJpeg() {
+    idJpeg = null;
+    notifyListeners();
+  }
+
   void setSelfieJpeg(Uint8List bytes) {
     selfieJpeg = bytes;
+    notifyListeners();
+  }
+
+  void clearSelfieJpeg() {
+    selfieJpeg = null;
     notifyListeners();
   }
 
