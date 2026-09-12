@@ -457,38 +457,49 @@ class _BassWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height / 2);
-    final radius = math.min(size.width, size.height) / 2 - 6;
+    final radius = math.min(size.width, size.height) / 2 - 8;
     final pulse = energy.clamp(0.0, 1.0);
+    const gold = Color(0xFFF3D59A);
+
+    canvas.drawCircle(
+      c,
+      radius,
+      Paint()..color = const Color(0xFF12100C).withOpacity(0.92),
+    );
+
+    final rim = Paint()
+      ..color = gold.withOpacity(0.80)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2;
+    canvas.drawCircle(c, radius * 0.96, rim);
 
     final ring = Paint()
-      ..color = const Color(0xFFF3D59A).withOpacity(0.35 + 0.25 * pulse)
+      ..color = gold.withOpacity(0.22 + 0.40 * pulse)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6;
-    final baseR = radius * 0.46;
-    canvas.drawCircle(c, baseR, ring);
-    canvas.drawCircle(c, radius * (0.92 + 0.03 * pulse), ring);
+      ..strokeWidth = 1.4;
+    canvas.drawCircle(c, radius * (0.78 + 0.02 * pulse), ring);
+    canvas.drawCircle(c, radius * (0.62 + 0.03 * pulse), ring);
+    canvas.drawCircle(c, radius * (0.48 + 0.03 * pulse), ring);
 
-    final bar = Paint()
-      ..color = const Color(0xFFF3D59A)
-      ..strokeWidth = 13
-      ..strokeCap = StrokeCap.round;
-
-    const ticks = 16;
-    final maxLen = radius * 0.46;
-    for (var i = 0; i < ticks; i++) {
-      final a = (i / ticks) * math.pi * 2;
-      final wave = (math.sin(a * 3) + 1) / 2;
-      final len =
-          pulse < 0.02 ? 0.0 : maxLen * (0.16 + 0.84 * wave) * pulse;
-      final p1 = Offset(
-        c.dx + math.cos(a) * baseR,
-        c.dy + math.sin(a) * baseR,
-      );
-      final p2 = Offset(
-        c.dx + math.cos(a) * (baseR + len),
-        c.dy + math.sin(a) * (baseR + len),
-      );
-      canvas.drawLine(p1, p2, bar);
+    if (pulse > 0.03) {
+      final wave = Paint()
+        ..color = gold.withOpacity(0.20 + 0.50 * pulse)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..strokeCap = StrokeCap.round;
+      for (final dir in <double>[-1, 1]) {
+        for (var i = 0; i < 3; i++) {
+          final reach = radius * (0.16 + 0.14 * i + 0.18 * pulse);
+          final start = Offset(c.dx + dir * radius * 1.02, c.dy);
+          canvas.drawArc(
+            Rect.fromCircle(center: start, radius: reach),
+            dir < 0 ? -0.85 : math.pi - 0.85,
+            1.70,
+            false,
+            wave,
+          );
+        }
+      }
     }
   }
 
