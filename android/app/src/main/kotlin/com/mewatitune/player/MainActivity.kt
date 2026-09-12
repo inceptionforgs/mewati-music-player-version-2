@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.media.MediaActionSound
 import android.os.Build
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -52,6 +53,14 @@ class MainActivity : AudioServiceActivity() {
                             val flags = if (silent) 0 else AudioManager.FLAG_SHOW_UI
                             am.setStreamVolume(AudioManager.STREAM_MUSIC, idx, flags)
                             result.success(systemVolume(am))
+                        }
+                    }
+                    "playShutter" -> {
+                        try {
+                            MediaActionSound().play(MediaActionSound.SHUTTER_CLICK)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.success(false)
                         }
                     }
                     else -> result.notImplemented()
