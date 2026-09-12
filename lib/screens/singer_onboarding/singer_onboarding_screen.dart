@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -23,17 +21,39 @@ class SingerOnboardingScreen extends StatelessWidget {
 class _SingerOnboardingBody extends StatelessWidget {
   const _SingerOnboardingBody();
 
+  static const _bg = Color(0xFF101214);
+  static const _accent = Color(0xFF7CB342);
+  static const _muted = Color(0xFF9AA3AB);
+
+  static const _titles = [
+    'Your details',
+    'Identity document',
+    'Liveness check',
+    'Permission terms',
+  ];
+
+  static const _subtitles = [
+    'Name and mobile as they should appear on the record.',
+    'Photograph a government ID. This stays with the permission file.',
+    'A short face check so the request is tied to a live person.',
+    'Read to the end, then accept. Songs are not uploaded here.',
+  ];
+
   @override
   Widget build(BuildContext context) {
     final p = context.watch<SingerOnboardingProvider>();
     return Scaffold(
-      backgroundColor: const Color(0xFF0B0B0B),
+      backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A1A),
+        backgroundColor: _bg,
+        elevation: 0,
         foregroundColor: Colors.white,
-        title: const Text('Singer Onboarding Portal'),
+        title: const Text(
+          'Singer permission',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18),
           onPressed: p.submitting
               ? null
               : () {
@@ -47,46 +67,70 @@ class _SingerOnboardingBody extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: p.submitted
-              ? const Center(
-                  child: Text(
-                    'Permission mil gayi. Review pending hai.\n'
-                    'Gaane is form se nahi jaate.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white, fontSize: 16),
-                  ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Step ${p.step + 1} / 4',
-                      style: const TextStyle(color: Colors.white54),
-                    ),
-                    const SizedBox(height: 8),
-                    if (p.errorMessage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Text(
-                          p.errorMessage!,
-                          style: const TextStyle(color: Colors.redAccent),
-                        ),
-                      ),
-                    Expanded(child: _step(context, p)),
-                    const SizedBox(height: 12),
-                    if (p.submitting)
-                      const Center(child: CircularProgressIndicator())
-                    else
-                      _nav(context, p),
-                  ],
-                ),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+          child: p.submitted ? const _DoneCard() : _form(p),
         ),
       ),
     );
   }
 
-  Widget _step(BuildContext context, SingerOnboardingProvider p) {
+  Widget _form(SingerOnboardingProvider p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: (p.step + 1) / 4,
+            minHeight: 4,
+            color: _accent,
+            backgroundColor: Colors.white12,
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          'STEP ${p.step + 1} OF 4',
+          style: const TextStyle(
+            color: _accent,
+            fontSize: 11,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _titles[p.step],
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          _subtitles[p.step],
+          style: const TextStyle(color: _muted, fontSize: 13, height: 1.35),
+        ),
+        const SizedBox(height: 18),
+        if (p.errorMessage != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              p.errorMessage!,
+              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+            ),
+          ),
+        Expanded(child: _step(p)),
+        const SizedBox(height: 12),
+        if (p.submitting)
+          const Center(child: CircularProgressIndicator(color: _accent))
+        else
+          _nav(p),
+      ],
+    );
+  }
+
+  Widget _step(SingerOnboardingProvider p) {
     switch (p.step) {
       case 0:
         return _BasicStep(p: p);
@@ -105,21 +149,85 @@ class _SingerOnboardingBody extends StatelessWidget {
     }
   }
 
-  Widget _nav(BuildContext context, SingerOnboardingProvider p) {
-    if (p.step < 3) {
-      final ok = p.step == 0
-          ? p.canGoStep2
-          : p.step == 1
-              ? p.canGoStep3
-              : p.canGoStep4;
-      return ElevatedButton(
-        onPressed: ok ? p.next : null,
-        child: const Text('Aage'),
-      );
-    }
-    return ElevatedButton(
-      onPressed: p.canSubmit ? () => p.submit() : null,
-      child: const Text('Submit'),
+  Widget _nav(SingerOnboardingProvider p) {
+    final ok = p.step == 0
+        ? p.canGoStep2
+        : p.step == 1
+            ? p.canGoStep3
+            : p.step == 2
+                ? p.canGoStep4
+                : p.canSubmit;
+    final label = p.step < 3 ? 'Continue' : 'Submit permission';
+    return SizedBox(
+      height: 52,
+      child: FilledButton(
+        onPressed: ok
+            ? () {
+                if (p.step < 3) {
+                  p.next();
+                } else {
+                  p.submit();
+                }
+              }
+            : null,
+        style: FilledButton.styleFrom(
+          backgroundColor: _accent,
+          disabledBackgroundColor: Colors.white12,
+          foregroundColor: Colors.black,
+          disabledForegroundColor: Colors.white38,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        child: Text(label),
+      ),
+    );
+  }
+}
+
+class _DoneCard extends StatelessWidget {
+  const _DoneCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1D20),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.verified_outlined, color: Color(0xFF7CB342), size: 40),
+              SizedBox(height: 14),
+              Text(
+                'Permission received',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Your request is in review. This form only records consent. Songs are not uploaded from here.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Color(0xFF9AA3AB), height: 1.4),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -128,38 +236,47 @@ class _BasicStep extends StatelessWidget {
   final SingerOnboardingProvider p;
   const _BasicStep({required this.p});
 
+  InputDecoration _field(String label, {String? hint}) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      labelStyle: const TextStyle(color: Color(0xFF9AA3AB)),
+      hintStyle: const TextStyle(color: Colors.white24),
+      filled: true,
+      fillColor: const Color(0xFF1A1D20),
+      counterStyle: const TextStyle(color: Colors.white38),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.white12),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Colors.white12),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFF7CB342), width: 1.4),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListView(
       children: [
-        const Text('Basic Info',
-            style: TextStyle(color: Colors.white, fontSize: 18)),
-        const SizedBox(height: 16),
         TextField(
           style: const TextStyle(color: Colors.white),
           textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Name',
-            labelStyle: TextStyle(color: Colors.white70),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-          ),
+          textInputAction: TextInputAction.next,
+          decoration: _field('Full name', hint: 'As on your ID'),
           onChanged: p.setName,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         TextField(
           style: const TextStyle(color: Colors.white),
           keyboardType: TextInputType.phone,
           maxLength: 10,
-          decoration: const InputDecoration(
-            labelText: 'Mobile Number',
-            labelStyle: TextStyle(color: Colors.white70),
-            counterStyle: TextStyle(color: Colors.white38),
-            enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white24),
-            ),
-          ),
+          decoration: _field('Mobile number', hint: '10-digit number'),
           onChanged: p.setMobile,
         ),
       ],
@@ -176,26 +293,38 @@ class _TermsStep extends StatelessWidget {
     return Column(
       children: [
         Expanded(
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (n) {
-              if (n.metrics.pixels >= n.metrics.maxScrollExtent - 24) {
-                p.markTermsReadToEnd();
-              }
-              return false;
-            },
-            child: SingleChildScrollView(
-              child: Text(
-                SingerTerms.text,
-                style: const TextStyle(color: Colors.white70, height: 1.35),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1D20),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white12),
+            ),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: (n) {
+                if (n.metrics.pixels >= n.metrics.maxScrollExtent - 24) {
+                  p.markTermsReadToEnd();
+                }
+                return false;
+              },
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(14),
+                child: Text(
+                  SingerTerms.text,
+                  style: const TextStyle(
+                    color: Color(0xFFD0D5DA),
+                    height: 1.45,
+                    fontSize: 13.5,
+                  ),
+                ),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
         if (!p.termsReadToEnd)
           const Text(
-            'Pehle poori terms end tak padho.',
-            style: TextStyle(color: Colors.orangeAccent),
+            'Scroll to the end of the terms before you can accept.',
+            style: TextStyle(color: Color(0xFFFFB74D), fontSize: 12),
           ),
         CheckboxListTile(
           value: p.termsAccepted,
@@ -203,14 +332,16 @@ class _TermsStep extends StatelessWidget {
               ? (v) => p.setTermsAccepted(v ?? false)
               : null,
           title: const Text(
-            'Main sehmat hu',
-            style: TextStyle(color: Colors.white),
+            'I have read and accept these terms',
+            style: TextStyle(color: Colors.white, fontSize: 14),
           ),
+          activeColor: const Color(0xFF7CB342),
           controlAffinity: ListTileControlAffinity.leading,
+          contentPadding: EdgeInsets.zero,
         ),
         const Text(
-          'Aapka consent aapke device/samay ki jaankari ke saath securely record kiya jayega.',
-          style: TextStyle(color: Colors.white54, fontSize: 12),
+          'Your acceptance is stored with device and time information for the permission record. No songs are sent from this screen.',
+          style: TextStyle(color: Color(0xFF9AA3AB), fontSize: 12, height: 1.35),
         ),
       ],
     );
