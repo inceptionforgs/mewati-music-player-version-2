@@ -1,23 +1,11 @@
-// File: lib/screens/player/now_playing_screen.dart
-//
-// FIXED (Batch 3 audit):
-// - Small-screen overflow: main content is now wrapped in a LayoutBuilder
-//   + SingleChildScrollView (with a minHeight ConstrainedBox) instead of a
-//   bare Expanded > Column, so it scrolls instead of throwing a RenderFlex
-//   overflow on short screens or when the error banner is showing.
-// - Title/singer name now have horizontal padding + maxLines/overflow so
-//   long strings ellipsize instead of running off the screen edges.
-// - Equalizer icon now navigates to the real Custom Equalizer tab
-//   (Advance Settings) instead of opening the full AppDrawer.
-// - "No song selected" empty state now uses the same gradient chrome and
-//   top bar as the normal state instead of a bare flat background.
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/widgets/app_drawer.dart';
+import '../../models/song.dart';
 import '../../providers/player_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../routes/route_names.dart';
+import '../../services/cover_color_service.dart';
 import 'widgets/album_art.dart';
 import 'widgets/now_playing_actions.dart';
 import 'widgets/player_controls.dart';
@@ -34,6 +22,9 @@ class NowPlayingScreen extends StatefulWidget {
 class _NowPlayingScreenState extends State<NowPlayingScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   int _drawerEpoch = 0;
+  String? _boundId;
+  String? _boundCover;
+  Color? _artColor;
 
   void _openSleepTimerSheet() {
     showModalBottomSheet(
@@ -47,16 +38,56 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     Navigator.of(context).pushNamed(RouteNames.soundSettings);
   }
 
+  void _bindSong(Song? song) {
+    if (song == null) {
+      if (_boundId != null || _artColor != null) {
+        setState(() {
+          _boundId = null;
+          _boundCover = null;
+          _artColor = null;
+        });
+      }
+      return;
+    }
+    final same = _boundId == song.id && _boundCover == song.coverImageUrl;
+    if (same && _artColor != null) return;
+
+    final mem = CoverColorService.instance.cached(song.id, song.coverImageUrl);
+    _boundId = song.id;
+    _boundCover = song.coverImageUrl;
+    if (mem != null) {
+      if (_artColor != mem) {
+        setState(() => _artColor = mem);
+      }
+      return;
+    }
+
+    CoverColorService.instance
+        .colorFor(songId: song.id, coverUrl: song.coverImageUrl)
+        .then((c) {
+      if (!mounted || c == null) return;
+      if (_boundId != song.id) return;
+      setState(() => _artColor = c);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.watch<ThemeProvider>().theme;
-
-    final hasSong = context.select<PlayerProvider, bool>((p) => p.hasSong);
-    final song = context.select<PlayerProvider, dynamic>((p) => p.currentSong);
+    final song = context.select<PlayerProvider, Song?>((p) => p.currentSong);
     final errorMessage =
         context.select<PlayerProvider, String?>((p) => p.errorMessage);
 
-    if (!hasSong || song == null) {
+    _bindSong(song);
+
+    final top = _artColor != null
+        ? CoverColorService.backdrop(_artColor!, t.screenGradient.first)
+        : t.screenGradient.first;
+    final bottom = _artColor != null
+        ? CoverColorService.backdropDeep(_artColor!, t.screenGradient.last)
+        : t.screenGradient.last;
+
+    if (song == null) {
       return Scaffold(
         body: Container(
           decoration: BoxDecoration(
@@ -112,12 +143,14 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
       onDrawerChanged: (open) {
         if (!open) setState(() => _drawerEpoch++);
       },
-      body: Container(
+      body: AnimatedContainer(
+        duration: const Duration(milliseconds: 380),
+        curve: Curves.easeOut,
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: t.screenGradient,
+            colors: [top, bottom],
           ),
         ),
         child: SafeArea(
@@ -209,12 +242,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      Row(
+                                      const Row(
                                         children: [
-                                          const Icon(Icons.error_outline,
+                                          Icon(Icons.error_outline,
                                               color: Colors.redAccent,
                                               size: 18),
-                                          const SizedBox(width: 8),
+                                          SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
                                               'Unable to play this song',
@@ -268,12 +301,12 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                   },
                 ),
               ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 26),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 26),
                 child: SeekBar(),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 26),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 26),
                 child: PlayerControls(),
               ),
             ],
