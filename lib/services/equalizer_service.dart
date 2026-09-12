@@ -45,7 +45,6 @@ class EqualizerService {
   Timer? _volDebounce;
   AppLifecycleListener? _life;
 
-  /// Hardware volume just before Bass/Beats first raised STREAM_MUSIC.
   double? _volumeBeforeBoost;
 
   static const _loudIds = {'mewati-bass'};
@@ -112,6 +111,14 @@ class EqualizerService {
       }
     }
     return ((lo + hi) / 2).clamp(0.0, 1.0);
+  }
+
+  static const double _otherVolCap = 0.95;
+
+  double _streamCap(String id, double v) {
+    final x = v.clamp(0.0, 1.0);
+    if (id == 'mewati-bass') return x;
+    return x > _otherVolCap ? _otherVolCap : x;
   }
 
   bool get _mayWriteStream => _fg;
@@ -211,17 +218,30 @@ class EqualizerService {
       _intentVol = v;
     }
 
+    if (_activeId != 'mewati-bass' && v > _otherVolCap + 0.001) {
+      final capped = _otherVolCap;
+      _vol = capped;
+      _intentVol = capped;
+      if (_fg && !locked) {
+        _writingVol = true;
+        unawaited(SystemVolume.set(capped).whenComplete(() {
+          Future<void>.delayed(const Duration(milliseconds: 400), () {
+            _writingVol = false;
+          });
+        }));
+      }
+    }
+
     if (!_loudIds.contains(_activeId) &&
         !_streamBoostIds.contains(_activeId) &&
         !_bassScaleIds.contains(_activeId)) {
       return;
     }
-    final writeStream = _fg && !locked && _streamBoostIds.contains(_activeId);
     _volDebounce?.cancel();
     _volDebounce = Timer(const Duration(milliseconds: 80), () {
       unawaited(_pushNative(
         EqPresets.byId(_activeId),
-        writeStream: writeStream,
+        writeStream: false,
       ));
     });
   }
@@ -253,7 +273,7 @@ class EqualizerService {
     } else {
       await _pushNative(
         EqPresets.byId(_activeId),
-        writeStream: _streamBoostIds.contains(_activeId),
+        writeStream: false,
       );
     }
   }
@@ -266,11 +286,12 @@ class EqualizerService {
     final saved = _volumeBeforeBoost;
     if (saved == null) return;
     _volumeBeforeBoost = null;
-    _intentVol = saved;
+    _intentVol = _streamCap(_activeId, saved);
     if (!writeStream || !_mayWriteStream) return;
-    if ((saved - _vol).abs() <= 0.005) return;
+    final out = _intentVol;
+    if ((out - _vol).abs() <= 0.005) return;
     _writingVol = true;
-    unawaited(SystemVolume.set(saved).whenComplete(() {
+    unawaited(SystemVolume.set(out).whenComplete(() {
       Future<void>.delayed(const Duration(milliseconds: 800), () {
         _writingVol = false;
       });
@@ -455,9 +476,7 @@ class EqualizerService {
             ? (_intentVol * (1.0 + loudnessBoostPctFor(p.id, _intentVol)))
                 .clamp(0.0, 1.0)
             : _intentVol;
-        if (boost && target < 1.0 && target <= _vol + _volStep * 0.35) {
-          target = (_vol + _volStep).clamp(0.0, 1.0);
-        }
+        target = _streamCap(p.id, target);
         if ((target - _vol).abs() > 0.005) {
           _writingVol = true;
           unawaited(SystemVolume.set(target).whenComplete(() {
