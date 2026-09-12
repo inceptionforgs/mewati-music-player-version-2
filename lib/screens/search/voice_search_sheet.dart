@@ -7,18 +7,19 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../providers/player_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../routes/app_router.dart';
 
 class VoiceSearchSheet extends StatefulWidget {
   const VoiceSearchSheet({Key? key}) : super(key: key);
 
   static Future<String?> show(BuildContext context) {
-    return showGeneralDialog<String>(
-      context: context,
+    final navContext = AppRouter.navigatorKey.currentContext ?? context;
+    return showDialog<String>(
+      context: navContext,
+      useRootNavigator: true,
       barrierDismissible: true,
-      barrierLabel: 'Voice search',
-      barrierColor: Colors.black.withOpacity(0.82),
-      transitionDuration: const Duration(milliseconds: 180),
-      pageBuilder: (ctx, _, __) => const VoiceSearchSheet(),
+      barrierColor: Colors.black.withOpacity(0.86),
+      builder: (_) => const VoiceSearchSheet(),
     );
   }
 
@@ -235,8 +236,8 @@ class _VoiceSearchSheetState extends State<VoiceSearchSheet> {
     final t = context.watch<ThemeProvider>().theme;
     final ring = 78.0 + 34.0 * _level;
 
-    return Material(
-      color: t.background,
+    return Dialog.fullscreen(
+      backgroundColor: t.background,
       child: SafeArea(
         child: Column(
           children: [
