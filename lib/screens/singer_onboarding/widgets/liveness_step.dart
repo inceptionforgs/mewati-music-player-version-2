@@ -5,13 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../services/shutter_sound.dart';
+
 class LivenessStep extends StatefulWidget {
   final void Function(List<int> jpeg) onVerified;
+  final VoidCallback onCleared;
   final bool done;
 
   const LivenessStep({
     super.key,
     required this.onVerified,
+    required this.onCleared,
     required this.done,
   });
 
@@ -20,17 +24,18 @@ class LivenessStep extends StatefulWidget {
 }
 
 class _LivenessStepState extends State<LivenessStep> {
+  static const _accent = Color(0xFF7CB342);
+
   CameraController? _controller;
   FaceDetector? _detector;
+  Uint8List? _preview;
   String? _error;
   bool _busy = false;
   bool _streaming = false;
   int _frame = 0;
-  bool _leftDone = false;
-  bool _rightDone = false;
-  String _hint = 'apna sar halka sa LEFT ghumao';
-
-  static const _turn = 16.0;
+  int _blinks = 0;
+  bool _eyesWereClosed = false;
+  String _hint = 'Look at the camera, then blink twice.';
 
   @override
   void initState() {
@@ -41,13 +46,15 @@ class _LivenessStepState extends State<LivenessStep> {
   Future<void> _open() async {
     final status = await Permission.camera.request();
     if (!status.isGranted) {
-      if (mounted) setState(() => _error = 'Camera permission chahiye.');
+      if (mounted) {
+        setState(() => _error = 'Camera permission is required.');
+      }
       return;
     }
     try {
       _detector = FaceDetector(
         options: FaceDetectorOptions(
-          enableClassification: false,
+          enableClassification: true,
           enableLandmarks: false,
           enableContours: false,
           enableTracking: true,
@@ -56,7 +63,7 @@ class _LivenessStepState extends State<LivenessStep> {
       );
       final cams = await availableCameras();
       if (cams.isEmpty) {
-        if (mounted) setState(() => _error = 'Camera nahi mili.');
+        if (mounted) setState(() => _error = 'No camera found.');
         return;
       }
       final front = cams.firstWhere(
@@ -77,15 +84,15 @@ class _LivenessStepState extends State<LivenessStep> {
       setState(() => _controller = controller);
       await controller.startImageStream(_onFrame);
       _streaming = true;
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
-        setState(() => _error = 'Front camera / face check start nahi hua.');
+        setState(() => _error = 'Could not start the face check.');
       }
     }
   }
 
   Future<void> _onFrame(CameraImage image) async {
-    if (_busy || _leftDone && _rightDone) return;
+    if (_busy || _preview != null || _blinks >= 2) return;
     _frame++;
     if (_frame % 3 != 0) return;
     final detector = _detector;
@@ -96,22 +103,39 @@ class _LivenessStepState extends State<LivenessStep> {
       final input = _toInputImage(image, cam.description);
       if (input == null) return;
       final faces = await detector.processImage(input);
-      if (faces.isEmpty || !mounted) return;
-      final y = faces.first.headEulerAngleY;
-      if (y == null) return;
-      var changed = false;
-      if (!_leftDone && y <= -_turn) {
-        _leftDone = true;
-        _hint = 'ab sar halka sa RIGHT ghumao';
-        changed = true;
-      } else if (_leftDone && !_rightDone && y >= _turn) {
-        _rightDone = true;
-        _hint = 'Verify ho gaya. Selfie le rahe hain…';
-        changed = true;
+      if (faces.isEmpty || !mounted) {
+        if (mounted && _hint != 'Keep your face in the frame.') {
+          setState(() => _hint = 'Keep your face in the frame.');
+        }
+        return;
       }
-      if (changed && mounted) setState(() {});
-      if (_leftDone && _rightDone) {
-        await _captureStill();
+      final face = faces.first;
+      final left = face.leftEyeOpenProbability;
+      final right = face.rightEyeOpenProbability;
+      if (left == null || right == null) {
+        if (mounted) {
+          setState(() => _hint = 'Move closer so both eyes are visible.');
+        }
+        return;
+      }
+      final closed = left < 0.25 && right < 0.25;
+      final open = left > 0.55 && right > 0.55;
+      if (closed) {
+        _eyesWereClosed = true;
+        if (mounted) {
+          setState(() => _hint = 'Good. Open your eyes.');
+        }
+      } else if (open && _eyesWereClosed) {
+        _eyesWereClosed = false;
+        _blinks += 1;
+        if (_blinks >= 2) {
+          if (mounted) setState(() => _hint = 'Verified. Capturing…');
+          await _captureStill();
+        } else if (mounted) {
+          setState(() => _hint = 'Blink once more.');
+        }
+      } else if (open && mounted && _blinks == 0) {
+        setState(() => _hint = 'Blink twice. Do not turn your head.');
       }
     } catch (_) {
     } finally {
@@ -122,8 +146,9 @@ class _LivenessStepState extends State<LivenessStep> {
   InputImage? _toInputImage(CameraImage image, CameraDescription desc) {
     try {
       final nv21 = _yuv420ToNv21(image);
-      final rotation = InputImageRotationValue.fromRawValue(desc.sensorOrientation) ??
-          InputImageRotation.rotation0deg;
+      final rotation =
+          InputImageRotationValue.fromRawValue(desc.sensorOrientation) ??
+              InputImageRotation.rotation0deg;
       return InputImage.fromBytes(
         bytes: nv21,
         metadata: InputImageMetadata(
@@ -149,7 +174,11 @@ class _LivenessStepState extends State<LivenessStep> {
     var outI = 0;
     for (var row = 0; row < height; row++) {
       final start = row * yPlane.bytesPerRow;
-      out.setRange(outI, outI + width, yPlane.bytes.sublist(start, start + width));
+      out.setRange(
+        outI,
+        outI + width,
+        yPlane.bytes.sublist(start, start + width),
+      );
       outI += width;
     }
     for (var row = 0; row < height ~/ 2; row++) {
@@ -173,11 +202,29 @@ class _LivenessStepState extends State<LivenessStep> {
         await c.stopImageStream();
         _streaming = false;
       }
+      await ShutterSound.play();
       final file = await c.takePicture();
       final bytes = await file.readAsBytes();
-      if (mounted) widget.onVerified(bytes);
+      widget.onVerified(bytes);
+      if (mounted) setState(() => _preview = bytes);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Selfie capture fail.');
+      if (mounted) setState(() => _error = 'Could not capture the selfie.');
+    }
+  }
+
+  Future<void> _retake() async {
+    widget.onCleared();
+    setState(() {
+      _preview = null;
+      _blinks = 0;
+      _eyesWereClosed = false;
+      _hint = 'Look at the camera, then blink twice.';
+      _error = null;
+    });
+    final c = _controller;
+    if (c != null && c.value.isInitialized && !_streaming) {
+      await c.startImageStream(_onFrame);
+      _streaming = true;
     }
   }
 
@@ -201,28 +248,45 @@ class _LivenessStepState extends State<LivenessStep> {
     }
     final c = _controller;
     if (c == null || !c.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: _accent));
     }
     return Column(
       children: [
-        Text(_hint, style: const TextStyle(color: Colors.white, fontSize: 16)),
-        const SizedBox(height: 8),
         Text(
-          'Left: ${_leftDone ? "OK" : "…"}    Right: ${_rightDone ? "OK" : "…"}',
-          style: const TextStyle(color: Colors.white70),
+          _preview != null
+              ? 'Check the selfie. Retake if it is not clear.'
+              : _hint,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontSize: 15),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        if (_preview == null)
+          Text(
+            'Blinks  $_blinks / 2',
+            style: const TextStyle(color: Color(0xFF9AA3AB)),
+          ),
+        const SizedBox(height: 10),
         Expanded(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: CameraPreview(c),
+            borderRadius: BorderRadius.circular(14),
+            child: _preview != null
+                ? Image.memory(_preview!, fit: BoxFit.cover, width: double.infinity)
+                : CameraPreview(c),
           ),
         ),
-        if (widget.done)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text('Liveness selfie ready.',
-                style: TextStyle(color: Color(0xFF7DFFB3))),
+        const SizedBox(height: 12),
+        if (_preview != null)
+          OutlinedButton.icon(
+            onPressed: _retake,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retake photo'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _accent,
+              side: const BorderSide(color: _accent),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
       ],
     );
