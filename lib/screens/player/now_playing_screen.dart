@@ -34,6 +34,17 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
     );
   }
 
+  void _onHorizontalSwipe(DragEndDetails details) {
+    final v = details.primaryVelocity ?? 0;
+    if (v.abs() < 180) return;
+    final player = context.read<PlayerProvider>();
+    if (v < 0) {
+      player.next();
+    } else {
+      player.previous(forceSkip: true);
+    }
+  }
+
   void _openEqualizerSettings() {
     Navigator.of(context).pushNamed(RouteNames.soundSettings);
   }
@@ -188,113 +199,117 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                       child: ConstrainedBox(
                         constraints:
                             BoxConstraints(minHeight: constraints.maxHeight),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AlbumArt(song: song, t: t),
-                            const SizedBox(height: 22),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 24),
-                              child: Text(
-                                song.title,
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontStyle: FontStyle.italic,
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w600,
-                                  color: t.textPrimary,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 24),
-                              child: Text(
-                                song.singerName ?? 'Unknown Artist',
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                  color: t.textPrimary.withOpacity(0.72),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            if (errorMessage != null)
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onHorizontalDragEnd: _onHorizontalSwipe,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              AlbumArt(song: song, t: t),
+                              const SizedBox(height: 22),
                               Padding(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 24, vertical: 10),
-                                child: Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(10),
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 24),
+                                child: Text(
+                                  song.title,
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w600,
+                                    color: t.textPrimary,
                                   ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      const Row(
-                                        children: [
-                                          Icon(Icons.error_outline,
-                                              color: Colors.redAccent,
-                                              size: 18),
-                                          SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              'Unable to play this song',
-                                              style: TextStyle(
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 24),
+                                child: Text(
+                                  song.singerName ?? 'Unknown Artist',
+                                  textAlign: TextAlign.center,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: t.textPrimary.withOpacity(0.72),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              if (errorMessage != null)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 10),
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withOpacity(0.12),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        const Row(
+                                          children: [
+                                            Icon(Icons.error_outline,
                                                 color: Colors.redAccent,
-                                                fontSize: 13,
-                                                fontWeight: FontWeight.w700,
+                                                size: 18),
+                                            SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                'Unable to play this song',
+                                                style: TextStyle(
+                                                  color: Colors.redAccent,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
                                               ),
                                             ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          errorMessage,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color:
+                                                t.textPrimary.withOpacity(0.75),
+                                            fontSize: 12,
                                           ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        errorMessage,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color:
-                                              t.textPrimary.withOpacity(0.75),
-                                          fontSize: 12,
                                         ),
-                                      ),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: TextButton.icon(
-                                          onPressed: () {
-                                            final playerProvider =
-                                                context.read<PlayerProvider>();
-                                            playerProvider.clearError();
-                                            playerProvider.togglePlayPause();
-                                          },
-                                          icon: const Icon(Icons.refresh,
-                                              size: 16),
-                                          label: const Text('Retry'),
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton.icon(
+                                            onPressed: () {
+                                              final playerProvider =
+                                                  context.read<PlayerProvider>();
+                                              playerProvider.clearError();
+                                              playerProvider.togglePlayPause();
+                                            },
+                                            icon: const Icon(Icons.refresh,
+                                                size: 16),
+                                            label: const Text('Retry'),
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
+                              NowPlayingActions(
+                                song: song,
+                                onTimerTap: _openSleepTimerSheet,
+                                onEqualizerTap: _openEqualizerSettings,
                               ),
-                            NowPlayingActions(
-                              song: song,
-                              onTimerTap: _openSleepTimerSheet,
-                              onEqualizerTap: _openEqualizerSettings,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
