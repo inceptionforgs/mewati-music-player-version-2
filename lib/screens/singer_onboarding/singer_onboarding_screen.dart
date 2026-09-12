@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -27,16 +29,16 @@ class _SingerOnboardingBody extends StatelessWidget {
 
   static const _titles = [
     'Your details',
-    'Identity document',
     'Liveness check',
+    'Identity document',
     'Permission terms',
   ];
 
   static const _subtitles = [
     'Name and mobile as they should appear on the record.',
-    'Photograph a government ID. This stays with the permission file.',
-    'A short face check so the request is tied to a live person.',
-    'Read to the end, then accept. Songs are not uploaded here.',
+    'Blink twice so we know a live person is in front of the camera.',
+    'Photograph a government ID. Check the preview and retake if needed.',
+    'Review the terms, then confirm your agreement below.',
   ];
 
   @override
@@ -135,14 +137,16 @@ class _SingerOnboardingBody extends StatelessWidget {
       case 0:
         return _BasicStep(p: p);
       case 1:
-        return IdCaptureStep(
-          hasCapture: p.idJpeg != null,
-          onCaptured: (bytes) => p.setIdJpeg(Uint8List.fromList(bytes)),
-        );
-      case 2:
         return LivenessStep(
           done: p.selfieJpeg != null,
           onVerified: (bytes) => p.setSelfieJpeg(Uint8List.fromList(bytes)),
+          onCleared: p.clearSelfieJpeg,
+        );
+      case 2:
+        return IdCaptureStep(
+          hasCapture: p.idJpeg != null,
+          onCaptured: (bytes) => p.setIdJpeg(Uint8List.fromList(bytes)),
+          onCleared: p.clearIdJpeg,
         );
       default:
         return _TermsStep(p: p);
@@ -296,52 +300,57 @@ class _TermsStep extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: const Color(0xFF1A1D20),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
               border: Border.all(color: Colors.white12),
             ),
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (n) {
-                if (n.metrics.pixels >= n.metrics.maxScrollExtent - 24) {
-                  p.markTermsReadToEnd();
-                }
-                return false;
-              },
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(14),
-                child: Text(
-                  SingerTerms.text,
-                  style: const TextStyle(
-                    color: Color(0xFFD0D5DA),
-                    height: 1.45,
-                    fontSize: 13.5,
-                  ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+              child: Text(
+                SingerTerms.text,
+                style: const TextStyle(
+                  color: Color(0xFFD5DBE0),
+                  height: 1.5,
+                  fontSize: 13.5,
                 ),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 10),
-        if (!p.termsReadToEnd)
-          const Text(
-            'Scroll to the end of the terms before you can accept.',
-            style: TextStyle(color: Color(0xFFFFB74D), fontSize: 12),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1D20),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: p.termsAccepted
+                  ? const Color(0xFF7CB342)
+                  : Colors.white12,
+            ),
           ),
-        CheckboxListTile(
-          value: p.termsAccepted,
-          onChanged: p.termsReadToEnd
-              ? (v) => p.setTermsAccepted(v ?? false)
-              : null,
-          title: const Text(
-            'I have read and accept these terms',
-            style: TextStyle(color: Colors.white, fontSize: 14),
+          child: CheckboxListTile(
+            value: p.termsAccepted,
+            onChanged: (v) => p.setTermsAccepted(v ?? false),
+            title: const Text(
+              'I have read and agree to these Terms and Conditions',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            subtitle: const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text(
+                'Acceptance is recorded with the time and device used for this request.',
+                style: TextStyle(color: Color(0xFF9AA3AB), fontSize: 11),
+              ),
+            ),
+            activeColor: const Color(0xFF7CB342),
+            checkColor: Colors.black,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
           ),
-          activeColor: const Color(0xFF7CB342),
-          controlAffinity: ListTileControlAffinity.leading,
-          contentPadding: EdgeInsets.zero,
-        ),
-        const Text(
-          'Your acceptance is stored with device and time information for the permission record. No songs are sent from this screen.',
-          style: TextStyle(color: Color(0xFF9AA3AB), fontSize: 12, height: 1.35),
         ),
       ],
     );
