@@ -1,14 +1,20 @@
+import 'dart:typed_data';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../services/shutter_sound.dart';
+
 class IdCaptureStep extends StatefulWidget {
   final void Function(List<int> jpeg) onCaptured;
+  final VoidCallback onCleared;
   final bool hasCapture;
 
   const IdCaptureStep({
     super.key,
     required this.onCaptured,
+    required this.onCleared,
     required this.hasCapture,
   });
 
@@ -17,7 +23,10 @@ class IdCaptureStep extends StatefulWidget {
 }
 
 class _IdCaptureStepState extends State<IdCaptureStep> {
+  static const _accent = Color(0xFF7CB342);
+
   CameraController? _controller;
+  Uint8List? _preview;
   String? _error;
   bool _busy = false;
 
@@ -30,13 +39,15 @@ class _IdCaptureStepState extends State<IdCaptureStep> {
   Future<void> _open() async {
     final status = await Permission.camera.request();
     if (!status.isGranted) {
-      if (mounted) setState(() => _error = 'Camera permission chahiye.');
+      if (mounted) {
+        setState(() => _error = 'Camera permission is required.');
+      }
       return;
     }
     try {
       final cams = await availableCameras();
       if (cams.isEmpty) {
-        if (mounted) setState(() => _error = 'Camera nahi mili.');
+        if (mounted) setState(() => _error = 'No camera found.');
         return;
       }
       final back = cams.firstWhere(
@@ -55,8 +66,8 @@ class _IdCaptureStepState extends State<IdCaptureStep> {
         return;
       }
       setState(() => _controller = controller);
-    } catch (e) {
-      if (mounted) setState(() => _error = 'Camera khul nahi payi.');
+    } catch (_) {
+      if (mounted) setState(() => _error = 'Could not open the camera.');
     }
   }
 
@@ -65,14 +76,24 @@ class _IdCaptureStepState extends State<IdCaptureStep> {
     if (c == null || !c.value.isInitialized || _busy) return;
     setState(() => _busy = true);
     try {
+      await ShutterSound.play();
       final file = await c.takePicture();
       final bytes = await file.readAsBytes();
       widget.onCaptured(bytes);
+      if (mounted) setState(() => _preview = bytes);
     } catch (_) {
-      if (mounted) setState(() => _error = 'Photo nahi khichi.');
+      if (mounted) setState(() => _error = 'Could not take the photo.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _retake() {
+    widget.onCleared();
+    setState(() {
+      _preview = null;
+      _error = null;
+    });
   }
 
   @override
@@ -90,36 +111,65 @@ class _IdCaptureStepState extends State<IdCaptureStep> {
     }
     final c = _controller;
     if (c == null || !c.value.isInitialized) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(child: CircularProgressIndicator(color: _accent));
     }
+
     return Column(
       children: [
-        const Text(
-          'ID document ki LIVE photo lo. Gallery se upload nahi ho sakta.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        const SizedBox(height: 12),
         Expanded(
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: CameraPreview(c),
+            borderRadius: BorderRadius.circular(14),
+            child: _preview != null
+                ? Image.memory(_preview!, fit: BoxFit.cover, width: double.infinity)
+                : CameraPreview(c),
           ),
         ),
+        const SizedBox(height: 14),
+        if (_preview != null)
+          const Text(
+            'Check the photo. Retake if the ID is unclear.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Color(0xFF9AA3AB), fontSize: 13),
+          )
+        else
+          const Text(
+            'Hold the ID inside the frame. Live camera only — gallery is off.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Color(0xFF9AA3AB), fontSize: 13),
+          ),
         const SizedBox(height: 12),
-        if (widget.hasCapture)
-          const Text('ID photo ready.', style: TextStyle(color: Color(0xFF7DFFB3))),
-        const SizedBox(height: 8),
-        ElevatedButton.icon(
-          onPressed: _busy ? null : _snap,
-          icon: _busy
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.camera_alt),
-          label: Text(widget.hasCapture ? 'Dobara click karo' : 'ID photo click karo'),
-        ),
+        if (_preview != null)
+          OutlinedButton.icon(
+            onPressed: _retake,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retake photo'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _accent,
+              side: const BorderSide(color: _accent),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          )
+        else
+          FilledButton.icon(
+            onPressed: _busy ? null : _snap,
+            icon: _busy
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.photo_camera_outlined),
+            label: const Text('Capture ID'),
+            style: FilledButton.styleFrom(
+              backgroundColor: _accent,
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
       ],
     );
   }
