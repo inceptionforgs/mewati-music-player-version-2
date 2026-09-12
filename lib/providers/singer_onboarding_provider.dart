@@ -32,7 +32,6 @@ class SingerOnboardingProvider extends ChangeNotifier {
       canGoStep2 &&
       canGoStep3 &&
       canGoStep4 &&
-      termsReadToEnd &&
       termsAccepted &&
       !submitting;
 
@@ -74,8 +73,8 @@ class SingerOnboardingProvider extends ChangeNotifier {
   }
 
   void setTermsAccepted(bool v) {
-    if (!termsReadToEnd) return;
     termsAccepted = v;
+    if (v) termsReadToEnd = true;
     notifyListeners();
   }
 
